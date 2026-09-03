@@ -44,11 +44,11 @@ test('nickname admission, same-IP colleagues, atomic submissions and reset epoch
   assert.equal((await call(db,'/api/evaluate/submit',body,completeSession)).status,409);
   const nonce=(await call(db,'/api/admin/reset-preview',{},admin)).data.token;
   assert.equal((await call(db,'/api/admin/reset',{token:nonce,confirmation:'wrong'},admin)).status,400);
-  assert.equal((await call(db,'/api/admin/reset',{token:nonce,confirmation:'정말로 초기화 하시겠습니까?',name:'감사부'},admin)).status,200);
+  assert.equal((await call(db,'/api/admin/reset',{token:nonce,confirmation:'정말로 초기화 하시겠습니까?'},admin)).status,200);
   assert.equal((await call(db,'/api/admin/reset',{token:nonce,confirmation:'정말로 초기화 하시겠습니까?'},admin)).status,400);
   assert.equal((await call(db,'/api/evaluate/session',{},completeSession)).status,401);
   const cleared=(await call(db,'/api/admin/dashboard',{},admin)).data;
-  assert.equal(cleared.completed,0);assert.equal(cleared.name,'감사부');assert.notEqual(cleared.epoch,view.epoch);
+  assert.equal(cleared.completed,0);assert.equal(cleared.name,'업무환경 심리평가');assert.notEqual(cleared.epoch,view.epoch);
   for(const table of ['admissions','round_responses','legacy_counts'])assert.equal((await db.query('select count(*)::int n from evaluate_private.'+table)).rows[0].n,0);
   const next=await admit(db,'blue sky');const nextView=await accepted(db,next);
   assert.equal((await call(db,'/api/evaluate/submit',body,next)).status,409);

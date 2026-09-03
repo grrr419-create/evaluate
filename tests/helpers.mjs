@@ -2,7 +2,7 @@ import {PGlite} from '@electric-sql/pglite';
 import {pgcrypto} from '@electric-sql/pglite/contrib/pgcrypto';
 import {readFile,readdir} from 'node:fs/promises';
 import {fixture,legacyFixture,fixtureAdmin} from './fixtures.mjs';
-export async function database({version=3}={}){
+export async function database({version=4}={}){
  const db=new PGlite({extensions:{pgcrypto}});
  await db.exec('create role anon;create role authenticated;create role service_role;');
  const migrationRoot=new URL('../supabase/migrations/',import.meta.url);

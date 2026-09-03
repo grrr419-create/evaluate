@@ -101,12 +101,12 @@ async function download(){
 async function openReset(){
  try{
   const preview=await api('/api/admin/reset-preview');
-  modal.innerHTML='<div class="modal-content"><span class="reset-icon" aria-hidden="true">↺</span><h2 id="reset-title">정말로 초기화 하시겠습니까?</h2><p>현재 평가의 답변과 참여 기록이 삭제됩니다.<br>필요한 결과는 먼저 엑셀로 내려받아 주세요.</p><label class="reset-name">다음 평가 이름 <small>(선택)</small><input id="next-assessment-name" placeholder="예: 감사부" maxlength="60" autocomplete="off"></label><div class="modal-actions"><button class="secondary-button" id="cancel-reset" autofocus>취소</button><button class="danger-solid" id="confirm-reset">결과 초기화</button></div><p id="reset-error" role="alert"></p></div>';
+  modal.innerHTML='<div class="modal-content"><span class="reset-icon" aria-hidden="true">↺</span><h2 id="reset-title">정말로 초기화 하시겠습니까?</h2><p>현재 평가의 답변과 참여 기록이 삭제됩니다.<br>필요한 결과는 먼저 엑셀로 내려받아 주세요.</p><div class="modal-actions"><button class="secondary-button" id="cancel-reset" autofocus>취소</button><button class="danger-solid" id="confirm-reset">결과 초기화</button></div><p id="reset-error" role="alert"></p></div>';
   modal.showModal();document.getElementById('cancel-reset').onclick=()=>modal.close();
   document.getElementById('confirm-reset').onclick=async()=>{
    const btn=document.getElementById('confirm-reset');btn.disabled=true;btn.textContent='초기화 중…';
    try{
-    await api('/api/admin/reset',{token:preview.token,confirmation:'정말로 초기화 하시겠습니까?',name:document.getElementById('next-assessment-name').value});
+    await api('/api/admin/reset',{token:preview.token,confirmation:'정말로 초기화 하시겠습니까?'});
     modal.close();state.notice='초기화되었습니다. 새 평가에 참여할 수 있습니다.';await load();
    }catch(err){document.getElementById('reset-error').textContent=err.message;btn.disabled=false;btn.textContent='결과 초기화';}
   };

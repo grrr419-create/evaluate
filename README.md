@@ -6,7 +6,7 @@ GitHub Pages 화면과 Supabase Edge Function·Postgres로 운영합니다. PC�
 
 - 평가자는 이름·사번·비밀번호 없이 닉네임(2~30자)을 입력합니다. 안내를 확인하고 모든 문항에 응답한 뒤 제출 확인창에서 제출합니다.
 - 관리자는 현재 평가의 제출 인원과 문항별 통계를 확인합니다. 대상 명단, 미참여자, 부서별 완료 조건은 없습니다. 제출이 1건 이상이면 통계와 다운로드가 제공됩니다.
-- 다음 부서를 평가하기 전 기존 엑셀을 내려받고 결과 초기화를 실행합니다. 확인창에 다음 평가 이름(예: 감사부)을 선택적으로 입력할 수 있습니다.
+- 다음 부서를 평가하기 전 기존 엑셀을 내려받고 결과 초기화를 실행합니다. 확인창에서 결과 초기화를 확정합니다.
 - 초기화하면 현재 답변, 닉네임 참여 기록, 중복 확인 정보가 삭제되고 평가자 세션이 만료됩니다. 같은 브라우저와 닉네임으로 새 평가에 참여할 수 있습니다.
 - 문항은 고정입니다. 명단 및 문항 업로드 기능은 제공하지 않습니다.
 
@@ -41,9 +41,11 @@ GitHub Pages 화면과 Supabase Edge Function·Postgres로 운영합니다. PC�
 
 신규 설치는 SQL migration을 파일명 순서대로 모두 실행한 뒤, 문항·안내만 들어 있는 `.private/frozen-data.json`과 `.private/관리자설정.json`으로 `node tools/prepare-seed.mjs`를 실행합니다. 생성된 비공개 install.sql을 Supabase SQL Editor에서 한 번 실행합니다. 초기 설치 자료에는 명단이 필요 없으며 source는 허용된 필드만 저장합니다.
 
-기존 1.1 운영 환경에는 `202609030003_nickname_rounds.sql`만 추가 적용합니다. 이 전환은 명단·사번 연결 테이블을 제거하고 기존 통계와 보관된 개별 답변을 보존합니다. 재실행해도 새로 수집한 평가를 지우지 않습니다. 기존 migration 001·002를 운영 DB에 다시 적용하지 마세요.
+기존 1.1 운영 환경에는 `202609030003_nickname_rounds.sql`, `202609030004_reset_conditions.sql` 순서로 추가 적용합니다. 이 전환은 명단·사번 연결 테이블을 제거하고 기존 통계와 보관된 개별 답변을 보존합니다. 재실행해도 새로 수집한 평가를 지우지 않습니다. 기존 migration 001·002를 운영 DB에 다시 적용하지 마세요.
 
 Edge Function `evaluate`는 `verify_jwt=false`로 배포하고 내부의 별도 세션 검증을 사용합니다. 환경 변수 `ALLOWED_ORIGINS`에는 Pages 출처를 설정합니다. `SUPABASE_URL`과 `SUPABASE_SERVICE_ROLE_KEY`는 서버에서만 사용합니다. `public/config.json`의 apiUrl을 설정한 후 `node tools/build.mjs`로 docs를 만듭니다. Pages 게시 소스는 main 브랜치의 /docs입니다. 비밀번호·설치 SQL·데이터 백업은 공개 저장소에 올리지 않습니다.
+
+2.0 버전의 초기화 오류 수정에는 `202609030004_reset_conditions.sql`을 적용합니다. 운영 PostgREST의 safeupdate 설정을 유지하고 모든 삭제·수정 구문에 대상을 명시합니다. 평가 이름은 고정하며 초기화 창에 이름 입력란이 없습니다.
 
 ## 검증
 
