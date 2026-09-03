@@ -14,7 +14,7 @@ test('reset removes upgraded aggregate-only data and ignores retired assessment-
   // The original live submissions had aggregates only; include that case as well as admissions.
   await db.exec("update evaluate_private.settings set legacy_count=1,assessment_name='obsolete name' where singleton; insert into evaluate_private.legacy_counts values('question-a',0,1),('question-b',1,1);");
   const admin=(await call(db,'/api/admin/login',fixtureAdmin)).data.session;
-  const first=await call(db,'/api/evaluate/login',{nickname:'검증용바람',device:'1'.repeat(64)});
+  const first=await call(db,'/api/evaluate/login',{device:'1'.repeat(64)});
   assert.equal(first.status,200);
   const before=(await call(db,'/api/admin/dashboard',{},admin)).data;assert.equal(before.completed,1);
   const token=(await call(db,'/api/admin/reset-preview',{},admin)).data.token;
@@ -24,7 +24,7 @@ test('reset removes upgraded aggregate-only data and ignores retired assessment-
   assert.equal(after.completed,0);assert.equal(after.name,'업무환경 심리평가');assert.notEqual(after.epoch,before.epoch);
   assert.equal((await call(db,'/api/evaluate/session',{},first.data.session)).status,401);
   assert.equal((await call(db,'/api/admin/export',{},admin)).status,403);
-  const migration=await readFile(new URL('../supabase/migrations/202609030004_reset_conditions.sql',import.meta.url),'utf8');
+  const migration=await readFile(new URL('../supabase/migrations/202609030005_device_participation.sql',import.meta.url),'utf8');
   await db.exec(migration);assert.equal((await call(db,'/api/admin/dashboard',{},admin)).data.epoch,after.epoch);
  }finally{await db.close();}
 });

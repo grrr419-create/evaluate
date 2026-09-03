@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {database,call,handler} from './helpers.mjs';
 import {fixture,fixtureAdmin} from './fixtures.mjs';
 const device=n=>n.toString(16).padStart(64,'0');
-async function admit(db,nickname,n=1){
- const r=await call(db,'/api/evaluate/login',{nickname,device:device(n)});
+async function admit(db,n=1){
+ const r=await call(db,'/api/evaluate/login',{device:device(n)});
  assert.equal(r.status,200,JSON.stringify(r));return r.data.session;
 }
 async function accepted(db,session){
@@ -12,33 +12,36 @@ async function accepted(db,session){
  const r=await call(db,'/api/evaluate/acknowledge',{notice_version:view.notice_version},session);
  assert.equal(r.status,200);return r.data;
 }
-test('nickname admission, same-IP colleagues, atomic submissions and reset epochs',async()=>{
+test('button-only admission, same-IP colleagues, atomic submissions and reset epochs',async()=>{
  const db=await database();try{
   const admin=(await call(db,'/api/admin/login',fixtureAdmin)).data.session;
   assert.equal((await call(db,'/api/admin/export',{},admin)).status,403);
   assert.equal((await call(db,'/api/evaluate/login',{id:'TEST-A1',password:'TEST-A1'})).status,400);
-  assert.equal((await call(db,'/api/evaluate/login',{nickname:'바람',device:'bad'})).status,400);
-  const first=await admit(db,'  Blue  Sky  ');
+  assert.equal((await call(db,'/api/evaluate/login',{device:'bad'})).status,400);
+  const first=await admit(db);
   assert.equal((await call(db,'/api/admin/dashboard',{},first)).status,401);
   assert.equal((await call(db,'/api/evaluate/session',{},admin)).status,401);
   assert.equal((await call(db,'/api/admin/dashboard',{},admin)).data.completed,0);
-  assert.equal((await call(db,'/api/evaluate/login',{nickname:'blue sky',device:device(2)})).status,409);
-  assert.equal((await call(db,'/api/evaluate/login',{nickname:'다른닉네임',device:device(1)})).status,409);
-  const resumed=await admit(db,'ＢＬＵＥ　ＳＫＹ');
+  const resumed=await admit(db);
   assert.equal((await call(db,'/api/evaluate/session',{},first)).status,401);
   assert.equal((await call(db,'/api/evaluate/submit',{},resumed)).status,409);
   const view=await accepted(db,resumed);
+  assert.equal('nickname' in view,false);
+  assert.equal((await db.query('select count(*)::int n from evaluate_private.admissions')).rows[0].n,1);
   const body={assessment_version:view.assessment_version,epoch:view.epoch,answers:{'question-a':0,'question-b':1}};
   for(const answers of [{},{...body.answers,extra:1},{'question-a':true,'question-b':1},{'question-a':0.5,'question-b':1},{'question-a':2,'question-b':1}])
    assert.equal((await call(db,'/api/evaluate/submit',{...body,answers},resumed)).status,400);
   const duplicate=await Promise.all([call(db,'/api/evaluate/submit',body,resumed),call(db,'/api/evaluate/submit',body,resumed)]);
   assert.deepEqual(duplicate.map(r=>r.status).sort(),[200,409]);
-  const second=await admit(db,'초록나무',2);await accepted(db,second);
+  const second=await admit(db,2);await accepted(db,second);
   assert.equal((await call(db,'/api/evaluate/submit',{...body,answers:{'question-a':1,'question-b':2}},second)).status,200);
   const dashboard=(await call(db,'/api/admin/dashboard',{},admin)).data;
   assert.equal(dashboard.completed,2);assert.deepEqual(dashboard.statistics.map(q=>q.counts),[[1,1],[0,1,1]]);
   assert.equal(/participants|departments|people|nickname|pending|total/.test(JSON.stringify(dashboard)),false);
-  const completeSession=await admit(db,'blue sky');
+  const completeSession=resumed;
+  const blocked=await call(db,'/api/evaluate/login',{device:device(1)});
+  assert.equal(blocked.status,409);assert.equal(blocked.data.error,'평가는 기기 당 1회 참여할 수 있습니다.');
+  assert.equal(duplicate.find(r=>r.status===409).data.error,blocked.data.error);
   assert.equal((await call(db,'/api/evaluate/session',{},completeSession)).data.complete,true);
   await accepted(db,completeSession);
   assert.equal((await call(db,'/api/evaluate/submit',body,completeSession)).status,409);
@@ -50,7 +53,7 @@ test('nickname admission, same-IP colleagues, atomic submissions and reset epoch
   const cleared=(await call(db,'/api/admin/dashboard',{},admin)).data;
   assert.equal(cleared.completed,0);assert.equal(cleared.name,'업무환경 심리평가');assert.notEqual(cleared.epoch,view.epoch);
   for(const table of ['admissions','round_responses','legacy_counts'])assert.equal((await db.query('select count(*)::int n from evaluate_private.'+table)).rows[0].n,0);
-  const next=await admit(db,'blue sky');const nextView=await accepted(db,next);
+  const next=await admit(db);const nextView=await accepted(db,next);
   assert.equal((await call(db,'/api/evaluate/submit',body,next)).status,409);
   assert.equal((await call(db,'/api/evaluate/submit',{...body,epoch:nextView.epoch},next)).status,200);
   assert.equal((await call(db,'/api/admin/dashboard',{},admin)).data.completed,1);
@@ -64,14 +67,14 @@ test('public roles cannot read answers; limits expire and allow shared-IP collea
    await assert.rejects(db.query("select public.evaluate_api('/api/admin/dashboard')"),/permission denied/);
    await db.exec('reset role');
   }
-  for(let n=1;n<=35;n++)await admit(db,'검증닉네임'+n,n);
+  for(let n=1;n<=35;n++)await admit(db,n);
   for(let n=0;n<15;n++)assert.equal((await call(db,'/api/admin/login',{id:fixtureAdmin.id,password:'wrong'},'',String(n))).status,401);
   assert.equal((await call(db,'/api/admin/login',fixtureAdmin,'','another-ip')).status,429);
   await db.exec("update evaluate_private.login_limits set window_start=now()-interval '16 minutes'");
   const admin=(await call(db,'/api/admin/login',fixtureAdmin)).data.session;
   await db.exec("update evaluate_private.sessions set expires_at=now()-interval '1 second'");
   assert.equal((await call(db,'/api/admin/dashboard',{},admin)).status,401);
-  await admit(db,'검증닉네임1',1);
+  await admit(db,1);
   await assert.rejects(db.query('select evaluate_private.install($1::jsonb,$2,$3)',[JSON.stringify({...fixture,revision:'changed'}),fixtureAdmin.id,fixtureAdmin.password]),/already exists/);
  }finally{await db.close();}
 });

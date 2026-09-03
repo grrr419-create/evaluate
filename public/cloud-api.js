@@ -26,7 +26,7 @@ const AssessmentAPI=(()=>{
     }
     if(localStorage.getItem(key)!==device)throw new Error('Storage unavailable');
    }catch{throw failure('중복 참여 확인을 위해 브라우저의 사이트 데이터 저장을 허용해 주세요.',400);}
-   body={nickname:body.nickname,device};
+   body={device};
   }
   if(!route.endsWith('/login')&&!session)throw failure('로그인이 필요합니다.',401);
   let response;

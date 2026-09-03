@@ -12,25 +12,25 @@ function countAnswered(){return (state.view?.questions||[]).filter(q=>Number.isI
 function renderLogin(){
  const admin=role==='admin';
  document.title=(admin?'관리자 로그인':'업무환경 심리평가')+' | HANSHIN';
- const fields=admin?'<label class="login-field"><span>ID</span><input name="id" aria-label="ID" placeholder="관리자 ID" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="80"></label><label class="login-field"><span>PW</span><input name="password" aria-label="PW" type="password" placeholder="관리자 비밀번호" autocomplete="current-password" required maxlength="160"></label>':'<label class="login-field"><span>닉네임</span><input name="nickname" aria-label="닉네임" placeholder="사용할 닉네임을 입력해 주세요" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" required minlength="2" maxlength="30" aria-describedby="nickname-hint"></label>';
- app.innerHTML='<main class="login-shell"><section class="brand-panel" aria-label="HANSHIN 업무환경 심리평가"></section><section class="login-panel"><form class="login-form" id="login-form">'+(admin?'<h1>관리자 로그인</h1>':'')+alertBox()+fields+'<button class="primary-button" type="submit" '+(state.busy?'disabled':'')+'>'+(state.busy?'접속 중…':admin?'로그인 →':'평가 참여하기 →')+'</button><p class="login-hint" id="nickname-hint">'+(admin?'관리자 전용 계정으로 로그인해 주세요.':'본인을 알아볼 수 없는 닉네임을 입력해 주세요.<br>한 브라우저에서는 한 번만 참여할 수 있습니다.')+'</p></form><footer>HANSHIN <span>업무환경 심리평가</span></footer></section></main>';
+ const fields=admin?'<label class="login-field"><span>ID</span><input name="id" aria-label="ID" placeholder="관리자 ID" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="80"></label><label class="login-field"><span>PW</span><input name="password" aria-label="PW" type="password" placeholder="관리자 비밀번호" autocomplete="current-password" required maxlength="160"></label>':'';
+ app.innerHTML='<main class="login-shell"><section class="brand-panel" aria-label="HANSHIN 업무환경 심리평가"></section><section class="login-panel"><form class="login-form '+(admin?'':'participation-form')+'" id="login-form">'+(admin?'<h1>관리자 로그인</h1>':'')+alertBox()+fields+'<button class="primary-button" type="submit" '+(state.busy?'disabled':'')+'>'+(state.busy?'접속 중…':admin?'로그인 →':'평가 참여하기')+'</button>'+(admin?'<p class="login-hint">관리자 전용 계정으로 로그인해 주세요.</p>':'')+'</form><footer>HANSHIN <span>업무환경 심리평가</span></footer></section></main>';
  document.getElementById('login-form').onsubmit=async e=>{
   e.preventDefault();if(state.busy)return;
-  const form=e.currentTarget,data=new FormData(form),value=String(data.get(admin?'id':'nickname')).trim();
-  const body=admin?{id:value,password:String(data.get('password'))}:{nickname:value};
+  const form=e.currentTarget,data=new FormData(form),value=String(data.get('id')||'').trim();
+  const body=admin?{id:value,password:String(data.get('password'))}:{};
   state.busy=true;form.querySelector('button').disabled=true;form.querySelector('button').textContent='접속 중…';
   try{await api('/api/'+role+'/login',body);state.logged=true;state.error='';state.answers={};state.stale=false;await load();}
   catch(err){state.error=err.message;state.logged=false;}
-  finally{state.busy=false;render();if(!state.logged){const input=document.querySelector(admin?'[name=id]':'[name=nickname]');if(input)input.value=value;}}
+  finally{state.busy=false;render();if(!state.logged&&admin){const input=document.querySelector('[name=id]');if(input)input.value=value;}}
  };
 }
-function header(){return '<header class="topbar"><a class="brand-link" href="./index.html">'+smallLogo+'</a><div class="topbar-right"><span>'+esc(state.view?.nickname||'')+'</span>'+button('나가기','logout','text-button')+'</div></header>';}
+function header(){return '<header class="topbar"><a class="brand-link" href="./index.html">'+smallLogo+'</a><div class="topbar-right">'+button('나가기','logout','text-button')+'</div></header>';}
 function renderEvaluation(){
  if(!state.logged)return renderLogin();
  const v=state.view;document.title='업무환경 심리평가 | HANSHIN';
  if(!v){app.innerHTML=header()+'<main class="center-page">'+alertBox()+button('다시 불러오기','refresh')+'</main>';return;}
  let main='';
- if(v.complete){main='<main class="center-page"><div class="completion-icon" aria-hidden="true">✓</div><p class="eyebrow">ASSESSMENT COMPLETED</p><h1>평가 제출이 완료되었습니다.</h1><p class="subtle">소중한 의견을 남겨주셔서 감사합니다.<br>더 나은 근무환경을 만드는 데 활용하겠습니다.</p><div class="completion-note">제출한 평가는 중복으로 제출할 수 없습니다.</div>'+button('로그아웃','logout','primary-button')+'</main>';}
+ if(v.complete){main='<main class="center-page"><div class="completion-icon" aria-hidden="true">✓</div><p class="eyebrow">ASSESSMENT COMPLETED</p><h1>평가 제출이 완료되었습니다.</h1><p class="subtle">소중한 의견을 남겨주셔서 감사합니다.<br>더 나은 근무환경을 만드는 데 활용하겠습니다.</p><div class="completion-note">평가는 기기 당 1회 참여할 수 있습니다.</div>'+button('로그아웃','logout','primary-button')+'</main>';}
  else if(!v.accepted){main='<main class="notice-page" aria-label="평가 안내">'+alertBox()+'<article class="notice-card"><div class="notice-content">'+esc(v.notice||'등록된 안내 문구가 없습니다.')+'</div></article>'+button('평가 시작하기','acknowledge','primary-button',state.busy)+'</main>';}
  else{
   const n=countAnswered(),total=v.questions.length;

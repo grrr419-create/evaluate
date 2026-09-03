@@ -42,7 +42,6 @@ const StatisticsExcel=(()=>{
   const questionIds=new Set(dep.statistics.map(q=>q.id));
   if(questionIds.size!==dep.statistics.length)throw new Error('문항 정보 검증에 실패했습니다.');
   for(const entry of dep.responses){
-   if(typeof entry?.nickname!=='string'||!entry.nickname.trim())throw new Error('닉네임 정보를 확인하지 못했습니다.');
    const response=entry.answers;
    if(!response||typeof response!=='object'||Array.isArray(response)||Object.keys(response).length!==questionIds.size||Object.keys(response).some(k=>!questionIds.has(k)))throw new Error('개별 답변 검증에 실패했습니다.');
    dep.statistics.forEach((q,i)=>{const choice=response[q.id];if(!Number.isInteger(choice)||choice<0||choice>=q.options.length)throw new Error('개별 답변 검증에 실패했습니다.');responseCounts[i][choice]++;});
@@ -56,13 +55,13 @@ const StatisticsExcel=(()=>{
    {name:'문항별 통계',title:'문항별 응답 통계',headers:['평가 이름','문항','답변','응답 수(명)','참여 완료(명)','응답 비율'],rows,widths:[28,72,24,18,18,16],percentColumns:[5]},
    {name:'개별 응답 안내',title:'개별 응답 안내',subtitle:dep.name,headers:['구분','내용'],rows:[
     ['전체 제출 수',dep.completed],['개별 응답 시트 수',dep.response_count],['개별 답변 미보관 수',dep.unavailable_response_count],
-    ['시트 구성','각 응답 시트에 참여자가 입력한 닉네임과 전체 답변을 표시합니다. 이름·사번·IP·제출 시각은 포함하지 않으며 시트 번호는 제출 순서와 관계없습니다.'],
+    ['시트 구성','각 응답 시트에 한 참여자의 전체 답변을 표시합니다. 이름·사번·닉네임·IP·제출 시각은 포함하지 않으며 시트 번호는 제출 순서와 관계없습니다.'],
     ['취합 범위',dep.unavailable_response_count?'취합 통계에는 모든 제출이 포함됩니다. 개별 답변 보관 기능 도입 전 제출한 '+dep.unavailable_response_count+'건은 합계만 저장되어 있어 개인별 답변을 복원할 수 없습니다.':'취합 통계와 개별 응답 시트 모두 전체 제출을 포함합니다.']
    ],widths:[28,96]}
   ];
   dep.responses.forEach((response,i)=>{
    const number=String(i+1).padStart(3,'0');
-   sheets.push({name:'응답 '+number,title:'개별 응답 '+number,subtitle:dep.name+' · 닉네임: '+response.nickname,headers:['문항 번호','문항','선택 답변'],rows:dep.statistics.map((q,j)=>[j+1,q.text,q.options[response.answers[q.id]]]),widths:[14,78,30]});
+   sheets.push({name:'응답 '+number,title:'개별 응답 '+number,subtitle:dep.name+' · 응답 '+number,headers:['문항 번호','문항','선택 답변'],rows:dep.statistics.map((q,j)=>[j+1,q.text,q.options[response.answers[q.id]]]),widths:[14,78,30]});
   });
   const files=[
    ['[Content_Types].xml',declaration+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+sheets.map((s,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('')+'</Types>'],

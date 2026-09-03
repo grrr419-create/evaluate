@@ -33,7 +33,7 @@ function unzip(bytes){
  }
  return result;
 }
-test('Excel includes nickname and all answers per participant, with no formulas or technical identifiers',async()=>{
+test('Excel includes separate anonymous answers without names or technical identifiers',async()=>{
  const db=await database();try{
   const admin=(await call(db,'/api/admin/login',fixtureAdmin)).data.session;
   const first=await submit(db,'바람 <&>',1,{'question-a':0,'question-b':1});
@@ -41,16 +41,17 @@ test('Excel includes nickname and all answers per participant, with no formulas 
   assert.equal((await call(db,'/api/admin/export',{},first)).status,401);
   const exported=(await call(db,'/api/admin/export',{},admin)).data;
   assert.equal(exported.completed,2);assert.equal(exported.response_count,2);assert.equal(exported.unavailable_response_count,0);
-  assert.deepEqual(exported.responses.find(x=>x.nickname==='바람 <&>').answers,{'question-a':0,'question-b':1});
+  assert.ok(exported.responses.some(x=>x.answers['question-a']===0&&x.answers['question-b']===1));
   assert.deepEqual((await call(db,'/api/admin/export',{},admin)).data.responses,exported.responses);
-  assert.equal(/device|employee|response_id|timestamp|session/.test(JSON.stringify(exported)),false);
+  assert.equal(/nickname|device|employee|response_id|timestamp|session/.test(JSON.stringify(exported)),false);
   const makeExcel=await writer(),bytes=makeExcel(exported),files=unzip(bytes);
   assert.equal(files.get('xl/workbook.xml').match(/<sheet /g).length,5);
   assert.match(files.get('xl/workbook.xml'),/name="평가 현황"/);
   exported.responses.forEach((r,i)=>{
    const xml=files.get('xl/worksheets/sheet'+(i+4)+'.xml');
    assert.equal(xml.match(/<row /g).length,6);assert.match(xml,/<c r="A5" s="3"><v>1<\/v>/);
-   assert.ok(xml.includes(r.nickname==='바람 <&>'?'바람 &lt;&amp;&gt;':r.nickname));
+   assert.equal(/바람|SUM|닉네임/.test(xml),false);
+   assert.ok(xml.includes('응답 '+String(i+1).padStart(3,'0')));
    exported.statistics.forEach(q=>assert.ok(xml.includes(q.options[r.answers[q.id]])));
   });
   assert.equal(/<f[ >]/.test([...files.values()].join('')),false);
@@ -58,7 +59,7 @@ test('Excel includes nickname and all answers per participant, with no formulas 
   assert.throws(()=>makeExcel({...exported,completed:0}));
   assert.throws(()=>makeExcel({...exported,responses:[{nickname:'bad',answers:{'question-a':7,'question-b':1}},exported.responses[1]]}));
   assert.throws(()=>makeExcel({...exported,responses:[exported.responses[0],exported.responses[0]]}));
-  const output=new URL('../.private/test-output/',import.meta.url);await mkdir(output,{recursive:true});await writeFile(new URL('nickname-statistics.xlsx',output),bytes);
+  const output=new URL('../.private/test-output/',import.meta.url);await mkdir(output,{recursive:true});await writeFile(new URL('anonymous-statistics.xlsx',output),bytes);
  }finally{await db.close();}
 });
 test('upgrade deletes identity data, preserves all old totals and answer sets, and can run twice',async()=>{

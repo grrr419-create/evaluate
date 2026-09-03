@@ -9,8 +9,9 @@ test('browser token persists across sessions; unavailable storage does not silen
    requests.push(JSON.parse(opts.body));return Response.json({session:'opaque-fixture',ok:true});
   }});vm.runInContext(source+'\nthis.api=AssessmentAPI;',ctx);await ctx.api.init('evaluate');return ctx.api;
  }
- const a=await client();await a.request('/api/evaluate/login',{nickname:'바람'});await a.request('/api/evaluate/logout');
- const b=await client();await b.request('/api/evaluate/login',{nickname:'바람'});
+ const a=await client();await a.request('/api/evaluate/login',{});await a.request('/api/evaluate/logout');
+ const b=await client();await b.request('/api/evaluate/login',{});
+ assert.deepEqual(Object.keys(requests[0].body),['device']);
  assert.match(requests[0].body.device,/^[0-9a-f]{64}$/);assert.equal(requests[0].body.device,requests[2].body.device);
- saved.clear();blocked=true;const c=await client();await assert.rejects(c.request('/api/evaluate/login',{nickname:'바람'}),/저장/);assert.equal(requests.length,3);
+ saved.clear();blocked=true;const c=await client();await assert.rejects(c.request('/api/evaluate/login',{}),/저장/);assert.equal(requests.length,3);
 });
