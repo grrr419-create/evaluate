@@ -22,7 +22,7 @@ test('atomic workflow, statistics threshold, reset and role isolation',async()=>
   const second=await login('TEST-A2');await accept(second);assert.equal((await call(db,'/api/evaluate/submit',{...body,answers:{'question-a':1,'question-b':2}},second)).status,200);
   dashboard=(await call(db,'/api/admin/dashboard',{},admin)).data;assert.equal(dashboard.completed,2);assert.equal(dashboard.departments[0].unlocked,true);assert.equal(dashboard.departments[1].statistics,null);
   const exported=await call(db,'/api/admin/export',{department:'검증부서 A'},admin);assert.equal(exported.status,200);assert.deepEqual(exported.data.statistics[0].counts,[1,1]);assert.deepEqual(exported.data.statistics[1].counts,[0,1,1]);
-  // The stored result consists only of anonymous totals and a separate participation marker.
+  // Aggregate totals remain separate from participation and anonymous answer sets.
   const columns=(await db.query("select column_name from information_schema.columns where table_schema='evaluate_private' and table_name='counts' order by ordinal_position")).rows.map(x=>x.column_name);
   assert.deepEqual(columns,['department','question','choice','n']);
   assert.equal((await call(db,'/api/admin/upload',{},admin)).status,404);
