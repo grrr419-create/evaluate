@@ -1,6 +1,6 @@
-import { createApi } from './api.js?v=2.3.0';
-import { loginView, evaluationView, adminView, answeredCount } from './views.js?v=2.3.0';
-import { createConfirmation } from './confirmation.js?v=2.3.0';
+import { createApi } from './api.js?v=2.3.1';
+import { loginView, evaluationView, adminView, answeredCount } from './views.js?v=2.3.1';
+import { createConfirmation } from './confirmation.js?v=2.3.1';
 
 const root = document.getElementById('app');
 const role = document.documentElement.dataset.role || 'evaluate';
@@ -172,7 +172,7 @@ async function download() {
   render();
   try {
     const [{ StatisticsExcel }, data] = await Promise.all([
-      import('./statistics-excel.js?v=2.3.0'),
+      import('./statistics-excel.js?v=2.3.1'),
       api.request('/api/admin/export', {}),
     ]);
     const blob = new Blob([StatisticsExcel.create(data)], {

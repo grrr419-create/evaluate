@@ -130,3 +130,25 @@ test('Yes/No statistics use one row per question and correctly pair counts and p
     false,
   );
 });
+
+test('Excel preserves pre-update responses when a question is added', async () => {
+  const data = {
+    name: '업무환경 심리평가',
+    completed: 2,
+    response_count: 2,
+    unavailable_response_count: 0,
+    statistics: [
+      { id: 'old', text: '기존 문항', options: ['예', '아니오'], counts: [1, 1], answered: 2 },
+      { id: 'new', text: '추가 문항', options: ['예', '아니오'], counts: [1, 0], answered: 1 },
+    ],
+    responses: [{ answers: { old: 0 } }, { answers: { old: 1, new: 0 } }],
+  };
+  const files = unzip((await writer())(data));
+  const statistics = files.get('xl/worksheets/sheet1.xml');
+  const oldResponse = files.get('xl/worksheets/sheet2.xml');
+  const newResponse = files.get('xl/worksheets/sheet3.xml');
+  assert.match(statistics, /<c r="B4" s="5"><v>1<\/v>/);
+  assert.match(statistics, /1명 \(100%\)/);
+  assert.match(oldResponse, /미응답 \(문항 추가 전 제출\)/);
+  assert.doesNotMatch(newResponse, /미응답 \(문항 추가 전 제출\)/);
+});

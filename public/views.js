@@ -82,13 +82,14 @@ function statistics(data) {
   if (!data.completed)
     return '<div class="empty-results"><h3>아직 제출된 평가가 없습니다.</h3><p>평가가 제출되면 문항별 통계를 확인할 수 있습니다.</p></div>';
   return `<div class="results-list">${data.statistics
-    .map(
-      (question, index) => `<article class="result-question">
+    .map((question, index) => {
+      const answered = Number.isInteger(question.answered) ? question.answered : data.completed;
+      return `<article class="result-question">
     <h3><span>${String(index + 1).padStart(2, '0')}</span>${escapeHtml(question.text.replace(/^\s*\d+[.)]\s*/, ''))}</h3>
-    <div class="stacked-bar" aria-hidden="true">${question.counts.map((count, choice) => `<span class="bar-color-${choice % 5}" style="width:${(count / data.completed) * 100}%"></span>`).join('')}</div>
-    <div class="result-options">${question.options.map((option, choice) => `<span><i class="bar-color-${choice % 5}"></i>${escapeHtml(option)} <strong>${question.counts[choice]}명</strong> <em>${((question.counts[choice] / data.completed) * 100).toFixed(1)}%</em></span>`).join('')}</div>
-  </article>`,
-    )
+    <div class="stacked-bar" aria-hidden="true">${question.counts.map((count, choice) => `<span class="bar-color-${choice % 5}" style="width:${answered ? (count / answered) * 100 : 0}%"></span>`).join('')}</div>
+    <div class="result-options">${question.options.map((option, choice) => `<span><i class="bar-color-${choice % 5}"></i>${escapeHtml(option)} <strong>${question.counts[choice]}명</strong> <em>${(answered ? (question.counts[choice] / answered) * 100 : 0).toFixed(1)}%</em></span>`).join('')}</div>
+  </article>`;
+    })
     .join('')}</div>`;
 }
 export function adminView(state) {

@@ -101,7 +101,7 @@ CREATE OR REPLACE FUNCTION evaluate_private.dashboard()
  LANGUAGE plpgsql
  SET search_path TO ''
 AS $function$
-declare cfg evaluate_private.settings; completed integer; stats jsonb='[]'; nums jsonb; q jsonb; ix integer; amount integer;
+declare cfg evaluate_private.settings; completed integer; answered integer; stats jsonb='[]'; nums jsonb; q jsonb; ix integer; amount integer;
 begin
   select * into strict cfg from evaluate_private.settings where singleton;
   select count(*)+cfg.legacy_count into completed from evaluate_private.round_responses;
@@ -112,8 +112,9 @@ begin
         into amount from evaluate_private.round_responses where (answers->>(q->>'id'))::integer=ix;
       nums=nums||jsonb_build_array(amount);
     end loop;
-    if (select sum(n::integer) from jsonb_array_elements_text(nums) n)<>completed then raise exception 'Aggregate count mismatch'; end if;
-    stats=stats||jsonb_build_array(q||jsonb_build_object('counts',nums));
+    select coalesce(sum(n::integer),0) into answered from jsonb_array_elements_text(nums) n;
+    if answered>completed then raise exception 'Aggregate count mismatch'; end if;
+    stats=stats||jsonb_build_array(q||jsonb_build_object('counts',nums,'answered',answered));
   end loop;
   return jsonb_build_object('name',cfg.assessment_name,'completed',completed,'statistics',stats,
     'question_count',jsonb_array_length(cfg.source->'questions'),'epoch',cfg.epoch);

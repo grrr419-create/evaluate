@@ -173,22 +173,27 @@ export const StatisticsExcel = (() => {
         !response ||
         typeof response !== 'object' ||
         Array.isArray(response) ||
-        Object.keys(response).length !== questionIds.size ||
+        Object.keys(response).length < 1 ||
         Object.keys(response).some((k) => !questionIds.has(k))
       )
         throw new Error('개별 답변 검증에 실패했습니다.');
       dep.statistics.forEach((q, i) => {
         const choice = response[q.id];
+        if (choice === undefined) return;
         if (!Number.isInteger(choice) || choice < 0 || choice >= q.options.length)
           throw new Error('개별 답변 검증에 실패했습니다.');
         responseCounts[i][choice]++;
       });
     }
     dep.statistics.forEach((q, i) => {
+      const answered = Number.isInteger(q.answered) ? q.answered : q.counts.reduce((a, b) => a + b, 0);
       if (
         q.options.length !== q.counts.length ||
         q.counts.some((n) => !Number.isInteger(n) || n < 0) ||
-        q.counts.reduce((a, b) => a + b, 0) !== dep.completed ||
+        !Number.isInteger(answered) ||
+        answered < 0 ||
+        answered > dep.completed ||
+        q.counts.reduce((a, b) => a + b, 0) !== answered ||
         responseCounts[i].some((n, j) => n > q.counts[j])
       )
         throw new Error('응답 수 검증에 실패했습니다.');
@@ -200,12 +205,13 @@ export const StatisticsExcel = (() => {
       .concat(available.filter((label) => !['예', '아니오'].includes(label)));
     const rows = dep.statistics.map((q) => [
       q.text,
-      dep.completed,
+      Number.isInteger(q.answered) ? q.answered : q.counts.reduce((a, b) => a + b, 0),
       ...labels.map((label) => {
         const index = q.options.indexOf(label);
         if (index < 0) return '—';
         const count = q.counts[index],
-          percent = Math.round((count / dep.completed) * 1000) / 10;
+          answered = Number.isInteger(q.answered) ? q.answered : q.counts.reduce((a, b) => a + b, 0),
+          percent = answered ? Math.round((count / answered) * 1000) / 10 : 0;
         return count + '명 (' + percent + '%)';
       }),
     ]);
@@ -226,7 +232,12 @@ export const StatisticsExcel = (() => {
         name: '응답 ' + number,
         title: '개별 응답 ' + number,
         headers: ['문항', '선택 답변'],
-        rows: dep.statistics.map((q) => [q.text, q.options[response.answers[q.id]]]),
+        rows: dep.statistics.map((q) => [
+          q.text,
+          Number.isInteger(response.answers[q.id])
+            ? q.options[response.answers[q.id]]
+            : '미응답 (문항 추가 전 제출)',
+        ]),
         widths: [90, 24],
       });
     });
