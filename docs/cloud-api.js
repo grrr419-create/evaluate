@@ -1,4 +1,4 @@
-/* Supabase endpoint settings are public; only opaque per-user sessions live in this tab. */
+/* Opaque sessions stay in this tab; a random browser token limits repeat participation. */
 'use strict';
 const AssessmentAPI=(()=>{
  let endpoint='',session='',storageKey='',ready=false;
@@ -15,6 +15,19 @@ const AssessmentAPI=(()=>{
  }
  async function request(route,body={}){
   if(!ready)throw failure('평가 서버 연결을 준비 중입니다.');
+  if(route==='/api/evaluate/login'){
+   let device;
+   try{
+    const key='evaluate-browser:'+endpoint;
+    device=localStorage.getItem(key);
+    if(!/^[0-9a-f]{64}$/.test(device||'')){
+     device=Array.from(crypto.getRandomValues(new Uint8Array(32)),n=>n.toString(16).padStart(2,'0')).join('');
+     localStorage.setItem(key,device);
+    }
+    if(localStorage.getItem(key)!==device)throw new Error('Storage unavailable');
+   }catch{throw failure('중복 참여 확인을 위해 브라우저의 사이트 데이터 저장을 허용해 주세요.',400);}
+   body={nickname:body.nickname,device};
+  }
   if(!route.endsWith('/login')&&!session)throw failure('로그인이 필요합니다.',401);
   let response;
   try{response=await fetch(endpoint,{method:'POST',mode:'cors',credentials:'omit',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({route,body,session}),signal:AbortSignal.timeout(30000)});}

@@ -1,16 +1,16 @@
 import {PGlite} from '@electric-sql/pglite';
 import {pgcrypto} from '@electric-sql/pglite/contrib/pgcrypto';
 import {readFile,readdir} from 'node:fs/promises';
-import {fixture,fixtureAdmin} from './fixtures.mjs';
-export async function database({legacy=false}={}){
+import {fixture,legacyFixture,fixtureAdmin} from './fixtures.mjs';
+export async function database({version=3}={}){
  const db=new PGlite({extensions:{pgcrypto}});
  await db.exec('create role anon;create role authenticated;create role service_role;');
  const migrationRoot=new URL('../supabase/migrations/',import.meta.url);
  for(const name of (await readdir(migrationRoot)).filter(x=>x.endsWith('.sql')).sort()){
-  if(legacy&&name!=='202609030001_evaluate.sql')continue;
+  if(Number(name.slice(8,12))>version)continue;
   await db.exec(await readFile(new URL(name,migrationRoot),'utf8'));
  }
- await db.query('select evaluate_private.install($1::jsonb,$2,$3)',[JSON.stringify(fixture),fixtureAdmin.id,fixtureAdmin.password]);
+ await db.query('select evaluate_private.install($1::jsonb,$2,$3)',[JSON.stringify(version<3?legacyFixture:fixture),fixtureAdmin.id,fixtureAdmin.password]);
  return db;
 }
 export async function call(db,route,body={},session='',client='fixture-client'){

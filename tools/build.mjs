@@ -9,7 +9,7 @@ for(const file of files){
  if(/\.(?:js|json|html|css)$/.test(file)){
   const text=raw.toString('utf8');
   if(/sb_secret_|SUPABASE_SERVICE_ROLE_KEY|"people"\s*:|\.private\//.test(text))throw new Error('Private data found in public output: '+file);
-  if(frozen?.people.some(p=>p.name&&text.includes(p.name)))throw new Error('Participant name found in public output: '+file);
+  if(frozen?.people?.some(p=>p.name&&text.includes(p.name)))throw new Error('Participant name found in public output: '+file);
  }
  await copyFile(path,new URL('docs/'+file,root));
 }
