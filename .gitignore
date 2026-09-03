@@ -1,0 +1,13 @@
+.private/
+node_modules/
+dist/
+work/
+.env*
+!.env.example
+*.sqlite3*
+*.xlsx
+*.key
+__pycache__/
+
+# Local operator guide may contain administrator credentials.
+사용안내.txt

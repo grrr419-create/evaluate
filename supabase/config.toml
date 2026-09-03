@@ -1,0 +1,4 @@
+project_id = "evaluate"
+
+[functions.evaluate]
+verify_jwt = false
