@@ -45,11 +45,16 @@ test('Excel includes separate anonymous answers without names or technical ident
   assert.deepEqual((await call(db,'/api/admin/export',{},admin)).data.responses,exported.responses);
   assert.equal(/nickname|device|employee|response_id|timestamp|session/.test(JSON.stringify(exported)),false);
   const makeExcel=await writer(),bytes=makeExcel(exported),files=unzip(bytes);
-  assert.equal(files.get('xl/workbook.xml').match(/<sheet /g).length,5);
-  assert.match(files.get('xl/workbook.xml'),/name="평가 현황"/);
+  assert.equal(files.get('xl/workbook.xml').match(/<sheet /g).length,3);
+  assert.match(files.get('xl/workbook.xml'),/name="문항별 통계"/);
+  assert.equal(/평가 현황|개별 응답 안내/.test(files.get('xl/workbook.xml')),false);
+  assert.match(files.get('xl/worksheets/sheet1.xml'),/<c r="B3" s="5"><v>2<\/v>/);
   exported.responses.forEach((r,i)=>{
-   const xml=files.get('xl/worksheets/sheet'+(i+4)+'.xml');
-   assert.equal(xml.match(/<row /g).length,6);assert.match(xml,/<c r="A5" s="3"><v>1<\/v>/);
+   const xml=files.get('xl/worksheets/sheet'+(i+2)+'.xml');
+   assert.equal(xml.match(/<row /g).length,4);
+   assert.match(xml,/<c r="A2"[^>]*><is><t[^>]*>문항<\/t>/);
+   assert.match(xml,/<c r="B2"[^>]*><is><t[^>]*>선택 답변<\/t>/);
+   assert.equal(/문항 번호|업무환경 심리평가 ·/.test(xml),false);
    assert.equal(/바람|SUM|닉네임/.test(xml),false);
    assert.ok(xml.includes('응답 '+String(i+1).padStart(3,'0')));
    exported.statistics.forEach(q=>assert.ok(xml.includes(q.options[r.answers[q.id]])));
@@ -83,6 +88,22 @@ test('upgrade deletes identity data, preserves all old totals and answer sets, a
   const before=(await call(db,'/api/admin/export',{},admin)).data;
   await db.exec(migration);exported=(await call(db,'/api/admin/export',{},admin)).data;
   assert.deepEqual(exported,before);assert.equal(exported.completed,3);
-  const files=unzip((await writer())(exported));assert.equal(files.get('xl/workbook.xml').match(/<sheet /g).length,5);assert.match(files.get('xl/worksheets/sheet3.xml'),/1건은 합계만 저장/);
+  const files=unzip((await writer())(exported));assert.equal(files.get('xl/workbook.xml').match(/<sheet /g).length,3);
+  assert.match(files.get('xl/worksheets/sheet1.xml'),/<c r="B3" s="5"><v>3<\/v>/);
  }finally{await db.close();}
+});
+
+test('Yes/No statistics use one row per question and correctly pair counts and percentages',async()=>{
+ const data={name:'표시하지 않을 평가 이름',completed:3,response_count:3,unavailable_response_count:0,
+  statistics:[{id:'a',text:'문항 A',options:['아니오','예'],counts:[1,2]},{id:'b',text:'문항 B',options:['예','아니오'],counts:[0,3]}],
+  responses:[{answers:{a:0,b:1}},{answers:{a:1,b:1}},{answers:{a:1,b:1}}]};
+ const files=unzip((await writer())(data)),xml=files.get('xl/worksheets/sheet1.xml');
+ const cell=(ref)=>xml.match(new RegExp('<c r="'+ref+'"[^>]*>(.*?)</c>'))?.[1];
+ ['문항','참여','예','아니오'].forEach((label,i)=>assert.ok(cell(String.fromCharCode(65+i)+'2').includes('>'+label+'</t>')));
+ assert.equal(cell('B3'),'<v>3</v>');
+ for(const [ref,value] of [['C3','2명 (66.7%)'],['D3','1명 (33.3%)'],['C4','0명 (0%)'],['D4','3명 (100%)']])assert.ok(cell(ref).includes(value));
+ assert.equal(xml.match(/<row /g).length,4);
+ assert.match(xml,/<pane ySplit="2" topLeftCell="A3"/);
+ assert.equal(files.get('xl/workbook.xml').match(/<sheet /g).length,4);
+ assert.equal([...files.values()].some(value=>value.includes(data.name)),false);
 });
