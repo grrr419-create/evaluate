@@ -28,27 +28,42 @@ GitHub Pages 화면과 Supabase Edge Function·Postgres로 운영합니다. PC�
 
 ## 구성과 배포
 
-| 경로 | 역할 |
-| --- | --- |
-| `public/` | 화면 원본 |
-| `docs/` | GitHub Pages 게시 파일 |
-| `supabase/functions/evaluate/index.ts` | API 요청 검사와 DB 호출 |
-| `supabase/migrations/` | 데이터 구조, 권한, 접속·제출·통계 API |
-| `tools/build.mjs` | 허용된 정적 파일만 복사 |
-| `tools/prepare-seed.mjs` | 문항·안내·관리자 설정으로 최초 설치 SQL 생성 |
-| `tests/` | 실제 운영 데이터와 분리된 가상 데이터 테스트 |
-| `.private/` | 관리자 설정·설치 자료. 게시 금지 |
+| 경로                                   | 역할                                         |
+| -------------------------------------- | -------------------------------------------- |
+| `public/`                              | 화면 원본과 공통 HTML 템플릿                 |
+| `docs/`                                | GitHub Pages 게시 파일                       |
+| `supabase/functions/evaluate/index.ts` | API 요청 검사와 DB 호출                      |
+| `supabase/schema.sql`                  | 현재 데이터 구조, 권한, 접속·제출·통계 API   |
+| `tools/build.mjs`                      | 허용된 정적 파일만 복사                      |
+| `tools/prepare-seed.mjs`               | 문항·안내·관리자 설정으로 최초 설치 SQL 생성 |
+| `tools/prepare-notice.mjs`             | 안내멘트 파일로 안내만 수정하는 SQL 생성     |
+| `tests/`                               | 실제 운영 데이터와 분리된 가상 데이터 테스트 |
+| `.private/`                            | 관리자 설정·설치 자료. 게시 금지             |
 
-신규 설치는 SQL migration을 파일명 순서대로 모두 실행한 뒤, 문항·안내만 들어 있는 `.private/frozen-data.json`과 `.private/관리자설정.json`으로 `node tools/prepare-seed.mjs`를 실행합니다. 생성된 비공개 install.sql을 Supabase SQL Editor에서 한 번 실행합니다. 초기 설치 자료에는 명단이 필요 없으며 source는 허용된 필드만 저장합니다.
+`public/app.js`는 화면 전환과 이벤트, `views.js`는 화면 표시, `api.js`는 통신과 브라우저 세션, `confirmation.js`는 제출·초기화 확인창을 담당합니다. `statistics-excel.js`는 관리자가 다운로드할 때만 불러옵니다. 공통 `index.html`에서 평가·관리자 페이지를 생성하므로 동일한 HTML을 따로 관리하지 않습니다.
 
-기존 운영 환경에는 아직 적용하지 않은 migration을 순서대로 한 번씩 적용합니다. 2.0.1에서 2.1.0으로 전환할 때는 `202609030005_device_participation.sql`만 추가 적용합니다. 이 migration은 닉네임 열과 중복 조건을 제거하며 기존 답변·통계·기기 참여 기록을 보존합니다. 초기화는 실행하지 않습니다. 과거 migration을 최신 운영 DB에 다시 적용하면 함수가 이전 버전으로 덮어써지므로 재적용하지 마세요.
+신규 설치는 `supabase/schema.sql`을 먼저 실행합니다. 문항이 들어 있는 `.private/frozen-data.json`, `.private/관리자설정.json`의 `id`·`password`, 프로젝트 상위 폴더의 `안내멘트.txt`를 준비하고 `pnpm run prepare:seed`를 실행합니다. 생성된 비공개 `.private/install.sql`을 Supabase SQL Editor에서 한 번 실행합니다. 초기 설치 자료에는 명단이 필요 없으며 source는 허용된 필드만 저장합니다.
+
+현재 버튼 참여 방식의 DB에는 `schema.sql`을 다시 적용해도 응답·참여 기록·안내·세션이 보존됩니다. 사번 또는 닉네임 방식의 구버전 DB를 직접 전환하는 파일은 아닙니다. 해당 버전에서 전환해야 할 때는 Git 이력의 기존 migration을 사용합니다. 이번 리팩토링은 운영 DB를 변경하지 않습니다.
 
 Edge Function `evaluate`는 `verify_jwt=false`로 배포하고 내부의 별도 세션 검증을 사용합니다. 환경 변수 `ALLOWED_ORIGINS`에는 Pages 출처를 설정합니다. `SUPABASE_URL`과 `SUPABASE_SERVICE_ROLE_KEY`는 서버에서만 사용합니다. `public/config.json`의 apiUrl을 설정한 후 `node tools/build.mjs`로 docs를 만듭니다. Pages 게시 소스는 main 브랜치의 /docs입니다. 비밀번호·설치 SQL·데이터 백업은 공개 저장소에 올리지 않습니다.
 
-2.0 버전의 초기화 오류 수정에는 `202609030004_reset_conditions.sql`을 적용합니다. 운영 PostgREST의 safeupdate 설정을 유지하고 모든 삭제·수정 구문에 대상을 명시합니다. 평가 이름은 고정하며 초기화 창에 이름 입력란이 없습니다.
+운영 PostgREST의 safeupdate 설정을 유지하고 모든 삭제·수정 구문에 대상을 명시합니다. 평가 이름은 고정하며 초기화 창에 이름 입력란이 없습니다.
+
+## 안내 문구 관리
+
+로컬 운영 자료의 기준 파일은 `evaluate` 폴더 바로 위의 `안내멘트.txt`입니다. 파일을 수정한 뒤 `pnpm run prepare:notice`를 실행하고 생성된 `.private/update-notice.sql`을 Supabase SQL Editor에 적용하면 안내만 바뀝니다. 응답과 참여 기록은 초기화하지 않습니다. 파일 수정만으로 인터넷에 자동 게시되지는 않습니다. 관리자 접속정보와 사용법은 같은 상위 폴더의 `사용안내.txt`에서 관리합니다.
 
 ## 검증
 
-Node.js 22 이상에서 `npm install`, `npm test`, `npm run build`를 실행합니다. PGlite의 Postgres·pgcrypto로 버튼 참여, 공유 IP 참여, 브라우저 토큰 지속성, 동시 제출, 초기화, 권한, 기존 자료 전환 및 XLSX를 검증합니다.
+Node.js 22 이상과 pnpm을 사용합니다.
 
-`node tools/preview.mjs`는 운영 DB와 연결하지 않는 가상 평가를 실행합니다. 미리보기 관리자 계정은 tests/fixtures.mjs에 있으며 실제 운영 계정과 다릅니다.
+```sh
+pnpm install --frozen-lockfile
+pnpm test
+pnpm run build
+```
+
+PGlite의 Postgres·pgcrypto로 버튼 참여, 공유 IP 참여, 브라우저 토큰 지속성, 동시 제출, 초기화, 권한, 스키마 재적용 및 XLSX를 검증합니다. 빌드는 공개 파일 목록을 검사하고 두 HTML과 모든 모듈에 같은 버전을 적용합니다. `docs/`는 생성물이므로 직접 수정하지 않습니다. 화면 수정 후 빌드를 실행하고 원본과 `docs/`를 함께 커밋합니다. 출력 형식은 `pnpm run format`으로 정리합니다.
+
+`pnpm run preview`는 운영 DB와 연결하지 않는 가상 평가를 실행합니다. 실행 주소는 콘솔과 `.private/preview.json`에 표시됩니다. 미리보기 관리자 계정은 `tests/fixtures.mjs`에 있으며 실제 운영 계정과 다릅니다. 미리보기 DB는 메모리에 생성되며 종료하면 삭제됩니다.

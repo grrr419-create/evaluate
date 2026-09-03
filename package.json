@@ -1,13 +1,18 @@
 {
   "name": "evaluate",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "build": "node tools/build.mjs"
+    "build": "node tools/build.mjs",
+    "preview": "node tools/preview.mjs",
+    "prepare:seed": "node tools/prepare-seed.mjs",
+    "prepare:notice": "node tools/prepare-notice.mjs",
+    "format": "prettier --write public tools tests README.md package.json"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.4.5"
+    "@electric-sql/pglite": "0.4.5",
+    "prettier": "3.6.2"
   }
 }

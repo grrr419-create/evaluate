@@ -1,78 +1,70 @@
--- Nickname-only, one assessment round at a time. No roster is retained.
--- Existing submissions are preserved; resetting is a separate administrator action.
+-- Current installation schema. Existing rows, sessions and configuration are preserved.
+-- Historical employee/nickname conversions remain available in Git history.
 begin;
-alter table evaluate_private.settings add column if not exists assessment_name text not null default '업무환경 심리평가';
-alter table evaluate_private.settings add column if not exists legacy_count integer not null default 0 check(legacy_count>=0);
-alter table evaluate_private.sessions add column if not exists admission_id uuid;
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+create schema if not exists evaluate_private;
+revoke all on schema evaluate_private from public,anon,authenticated;
+create table if not exists evaluate_private.settings (
+ singleton boolean primary key default true check(singleton),
+ epoch text not null default gen_random_uuid()::text,
+ secret text not null default encode(extensions.gen_random_bytes(32),'hex'),
+ source jsonb not null, admin_login text not null, admin_hash text not null,
+ assessment_name text not null default '업무환경 심리평가',
+ legacy_count integer not null default 0 check(legacy_count>=0)
+);
+create table if not exists evaluate_private.sessions (
+ token_hash text primary key, role text not null check(role in ('admin','evaluate')),
+ epoch text not null, expires_at timestamptz not null, accepted boolean not null default false,
+ reset_hash text, reset_expires timestamptz, reset_epoch text, admission_id uuid
+);
 create table if not exists evaluate_private.admissions (
-  admission_id uuid primary key default gen_random_uuid(),
-  nickname text not null,
-  nickname_key text not null unique,
-  device_key text not null unique,
-  complete boolean not null default false
+ admission_id uuid primary key default gen_random_uuid(),
+ device_key text not null unique, complete boolean not null default false
 );
 create table if not exists evaluate_private.round_responses (
-  response_id uuid primary key default gen_random_uuid(),
-  nickname text not null,
-  answers jsonb not null check(jsonb_typeof(answers)='object')
+ response_id uuid primary key default gen_random_uuid(),
+ answers jsonb not null check(jsonb_typeof(answers)='object')
 );
+-- Aggregate-only submissions collected before per-response storage remain countable until reset.
 create table if not exists evaluate_private.legacy_counts (
-  question text not null,
-  choice integer not null check(choice>=0),
-  n integer not null check(n>0),
-  primary key(question,choice)
+ question text not null, choice integer not null check(choice>=0),
+ n integer not null check(n>0), primary key(question,choice)
 );
+create table if not exists evaluate_private.login_limits (
+ bucket text primary key, amount integer not null, window_start timestamptz not null
+);
+alter table evaluate_private.settings enable row level security;
+alter table evaluate_private.sessions enable row level security;
 alter table evaluate_private.admissions enable row level security;
 alter table evaluate_private.round_responses enable row level security;
 alter table evaluate_private.legacy_counts enable row level security;
+alter table evaluate_private.login_limits enable row level security;
 revoke all on all tables in schema evaluate_private from public,anon,authenticated;
 
-do $$
-declare cfg evaluate_private.settings; old_total integer; saved integer; q jsonb;
-begin
-  select * into cfg from evaluate_private.settings where singleton for update;
-  if found and cfg.source->>'mode' is distinct from 'nickname' then
-    select count(*) into old_total from evaluate_private.participation;
-    insert into evaluate_private.round_responses(response_id,nickname,answers)
-      select response_id,'기존 응답 '||lpad(row_number() over(order by response_id)::text,3,'0'),answers
-      from evaluate_private.anonymous_responses;
-    select count(*) into saved from evaluate_private.round_responses;
-    if saved>old_total then raise exception 'Existing response count mismatch'; end if;
-    if exists(
-      select 1 from (select question,choice,sum(n) n from evaluate_private.counts group by question,choice) c
-      full join (select a.key question,a.value::integer choice,count(*) n from evaluate_private.round_responses r,
-        lateral jsonb_each_text(r.answers) a group by a.key,a.value::integer) r using(question,choice)
-      where coalesce(c.n,0)<coalesce(r.n,0)
-    ) then raise exception 'Existing aggregate count mismatch'; end if;
-    insert into evaluate_private.legacy_counts(question,choice,n)
-      select c.question,c.choice,(c.n-coalesce(r.n,0))::integer
-      from (select question,choice,sum(n) n from evaluate_private.counts group by question,choice) c
-      left join (select a.key question,a.value::integer choice,count(*) n from evaluate_private.round_responses r,
-        lateral jsonb_each_text(r.answers) a group by a.key,a.value::integer) r using(question,choice)
-      where c.n>coalesce(r.n,0);
-    for q in select jsonb_array_elements(cfg.source->'questions') loop
-      if (select coalesce(sum(n),0) from evaluate_private.legacy_counts where question=q->>'id')<>old_total-saved
-        then raise exception 'Existing question totals mismatch'; end if;
-    end loop;
-    delete from evaluate_private.sessions where role='evaluate';
-    delete from evaluate_private.login_limits;
-    update evaluate_private.settings set legacy_count=old_total-saved,
-      epoch=gen_random_uuid()::text,secret=encode(extensions.gen_random_bytes(32),'hex'),
-      source=jsonb_build_object('mode','nickname','revision','nickname-v2','survey_version',cfg.source->>'survey_version',
-        'questions',cfg.source->'questions','notice_version','nickname-notice-v2',
-        'notice',E'업무환경 심리평가는 더 나은 근무환경을 만들기 위한 과정입니다.\n이름이나 사번 대신 본인을 알아볼 수 없는 닉네임을 사용해 주세요.\n관리자는 제출 인원과 통계, 닉네임별 답변을 확인할 수 있습니다.\n평소 느끼셨던 의견을 솔직하게 작성해 주세요.')
-      where singleton;
-  end if;
-end $$;
+CREATE OR REPLACE FUNCTION evaluate_private.reply(p_status integer, p_data jsonb)
+ RETURNS jsonb
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+  select jsonb_build_object('status',p_status,'data',p_data);
+$function$;
 
-drop function if exists evaluate_private.employee_view(text,boolean);
-drop table if exists evaluate_private.participation;
-drop table if exists evaluate_private.counts;
-drop table if exists evaluate_private.anonymous_responses;
-alter table evaluate_private.sessions drop column if exists employee;
+CREATE OR REPLACE FUNCTION evaluate_private.failure(p_status integer, p_message text)
+ RETURNS jsonb
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+  select evaluate_private.reply(p_status,jsonb_build_object('error',p_message));
+$function$;
 
-create or replace function evaluate_private.install(p_source jsonb,p_login text,p_password text)
-returns void language plpgsql set search_path='' as $$
+CREATE OR REPLACE FUNCTION evaluate_private.install(p_source jsonb, p_login text, p_password text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
 declare existing jsonb; clean jsonb;
 begin
   select source into existing from evaluate_private.settings where singleton;
@@ -83,26 +75,32 @@ begin
   if jsonb_typeof(p_source->'questions') is distinct from 'array' or jsonb_array_length(p_source->'questions')<1
     or coalesce(p_source->>'survey_version','')='' or coalesce(p_source->>'notice_version','')=''
     or coalesce(p_login,'')='' or coalesce(p_password,'')='' then raise exception 'Invalid initial assessment'; end if;
-  clean=jsonb_build_object('mode','nickname','revision',p_source->>'revision','questions',p_source->'questions',
+  clean=jsonb_build_object('mode','device','revision',p_source->>'revision','questions',p_source->'questions',
     'survey_version',p_source->>'survey_version','notice',p_source->>'notice','notice_version',p_source->>'notice_version');
   insert into evaluate_private.settings(source,admin_login,admin_hash)
     values(clean,p_login,extensions.crypt(encode(extensions.digest(p_password,'sha256'),'hex'),extensions.gen_salt('bf',10)));
-end $$;
+end $function$;
 
-create or replace function evaluate_private.nickname_view(p_admission uuid,p_accepted boolean)
-returns jsonb language plpgsql set search_path='' as $$
+CREATE OR REPLACE FUNCTION evaluate_private.participant_view(p_admission uuid, p_accepted boolean)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
 declare cfg evaluate_private.settings; who evaluate_private.admissions;
 begin
   select * into strict cfg from evaluate_private.settings where singleton;
   select * into strict who from evaluate_private.admissions where admission_id=p_admission;
-  return jsonb_build_object('nickname',who.nickname,'name',cfg.assessment_name,
+  return jsonb_build_object('name',cfg.assessment_name,
     'assessment_version',cfg.source->>'survey_version','notice',cfg.source->>'notice','notice_version',cfg.source->>'notice_version',
     'accepted',p_accepted,'complete',who.complete,'questions',case when p_accepted and not who.complete then cfg.source->'questions' else '[]'::jsonb end,
     'question_count',jsonb_array_length(cfg.source->'questions'),'epoch',cfg.epoch);
-end $$;
+end $function$;
 
-create or replace function evaluate_private.dashboard()
-returns jsonb language plpgsql set search_path='' as $$
+CREATE OR REPLACE FUNCTION evaluate_private.dashboard()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
 declare cfg evaluate_private.settings; completed integer; stats jsonb='[]'; nums jsonb; q jsonb; ix integer; amount integer;
 begin
   select * into strict cfg from evaluate_private.settings where singleton;
@@ -119,14 +117,18 @@ begin
   end loop;
   return jsonb_build_object('name',cfg.assessment_name,'completed',completed,'statistics',stats,
     'question_count',jsonb_array_length(cfg.source->'questions'),'epoch',cfg.epoch);
-end $$;
+end $function$;
 
-create or replace function public.evaluate_api(p_route text,p_body jsonb default '{}'::jsonb,p_session text default '',p_client text default '')
-returns jsonb language plpgsql security definer set search_path='' as $$
+CREATE OR REPLACE FUNCTION public.evaluate_api(p_route text, p_body jsonb DEFAULT '{}'::jsonb, p_session text DEFAULT ''::text, p_client text DEFAULT ''::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
 declare cfg evaluate_private.settings; sess evaluate_private.sessions; who evaluate_private.admissions;
   result jsonb; q jsonb; answers jsonb; raw_answer jsonb; ix integer; raw_token text; v_token_hash text;
-  role_name text; identifier text; supplied text; device text; normalized text; nickname_hash text; device_hash text;
-  buckets text[]; bucket_key text; amount integer; cap integer; nonce text; next_name text; saved integer; responses jsonb;
+  role_name text; identifier text; supplied text; device text; device_hash text;
+  buckets text[]; bucket_key text; amount integer; cap integer; nonce text; saved integer; responses jsonb;
 begin
   if jsonb_typeof(p_body) is distinct from 'object' then return evaluate_private.failure(400,'요청 형식이 올바르지 않습니다.'); end if;
   -- Serialize admission, submission, export and reset to prevent duplicate or cross-round writes.
@@ -136,12 +138,8 @@ begin
   if p_route in ('/api/evaluate/login','/api/admin/login') then
     role_name=split_part(p_route,'/',3);
     if role_name='evaluate' then
-      identifier=btrim(regexp_replace(pg_catalog.normalize(coalesce(p_body->>'nickname',''),'NFKC'),'[[:space:]]+',' ','g'));
       device=coalesce(p_body->>'device','');
-      if length(identifier)<2 or length(identifier)>30 or identifier~'[[:cntrl:]]' or device!~'^[0-9a-f]{64}$'
-        then return evaluate_private.failure(400,'닉네임은 2~30자로 입력해 주세요. 브라우저 저장 기능도 허용해 주세요.'); end if;
-      normalized=lower(identifier);
-      nickname_hash=encode(extensions.hmac('nickname:'||normalized,cfg.secret,'sha256'),'hex');
+      if device!~'^[0-9a-f]{64}$' then return evaluate_private.failure(400,'브라우저의 사이트 데이터 저장을 허용해 주세요.'); end if;
       device_hash=encode(extensions.hmac('device:'||device,cfg.secret,'sha256'),'hex');
     else
       identifier=btrim(coalesce(p_body->>'id','')); supplied=coalesce(p_body->>'password','');
@@ -161,14 +159,11 @@ begin
     if role_name='evaluate' then
       select * into who from evaluate_private.admissions where device_key=device_hash;
       if found then
-        if who.nickname_key<>nickname_hash then return evaluate_private.failure(409,'이 브라우저에서는 이미 다른 닉네임으로 참여했습니다. 처음 사용한 닉네임으로 접속해 주세요.'); end if;
+        if who.complete then return evaluate_private.failure(409,'평가는 1회 참여할 수 있습니다.'); end if;
       else
-        if exists(select 1 from evaluate_private.admissions where nickname_key=nickname_hash)
-          or exists(select 1 from evaluate_private.round_responses where lower(nickname)=normalized)
-          then return evaluate_private.failure(409,'이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해 주세요.'); end if;
-        insert into evaluate_private.admissions(nickname,nickname_key,device_key) values(identifier,nickname_hash,device_hash) returning * into who;
+        insert into evaluate_private.admissions(device_key) values(device_hash) returning * into who;
       end if;
-      -- Reopening with the same browser and nickname resumes participation, with only one active session.
+      -- Reopening an incomplete assessment reuses the admission and replaces its active session.
       delete from evaluate_private.sessions where admission_id=who.admission_id;
     elsif identifier<>cfg.admin_login or extensions.crypt(encode(extensions.digest(supplied,'sha256'),'hex'),cfg.admin_hash)<>cfg.admin_hash then
       return evaluate_private.failure(401,'ID 또는 PW를 확인해 주세요.');
@@ -183,23 +178,23 @@ begin
   v_token_hash=encode(extensions.digest(coalesce(p_session,''),'sha256'),'hex');
   select * into sess from evaluate_private.sessions s where s.token_hash=v_token_hash;
   if sess is null or sess.role<>role_name or sess.expires_at<now() then return evaluate_private.failure(401,'다시 접속해 주세요. 평가가 초기화되었거나 접속이 만료되었습니다.'); end if;
-  if sess.role='evaluate' and sess.epoch<>cfg.epoch then return evaluate_private.failure(401,'새 평가가 시작되었습니다. 닉네임으로 다시 접속해 주세요.'); end if;
+  if sess.role='evaluate' and sess.epoch<>cfg.epoch then return evaluate_private.failure(401,'새 평가가 시작되었습니다. 평가 참여하기를 눌러 다시 접속해 주세요.'); end if;
   if p_route in ('/api/admin/logout','/api/evaluate/logout') then
     delete from evaluate_private.sessions s where s.token_hash=v_token_hash;
     return evaluate_private.reply(200,'{"ok":true}'::jsonb);
   end if;
   if sess.role='evaluate' then
-    if p_route='/api/evaluate/session' then return evaluate_private.reply(200,evaluate_private.nickname_view(sess.admission_id,sess.accepted)); end if;
+    if p_route='/api/evaluate/session' then return evaluate_private.reply(200,evaluate_private.participant_view(sess.admission_id,sess.accepted)); end if;
     if p_route='/api/evaluate/acknowledge' then
       if p_body->>'notice_version' is distinct from cfg.source->>'notice_version' then return evaluate_private.failure(409,'안내를 다시 확인해 주세요.'); end if;
       update evaluate_private.sessions s set accepted=true where s.token_hash=v_token_hash;
-      return evaluate_private.reply(200,evaluate_private.nickname_view(sess.admission_id,true));
+      return evaluate_private.reply(200,evaluate_private.participant_view(sess.admission_id,true));
     end if;
     if p_route='/api/evaluate/submit' then
       if not sess.accepted then return evaluate_private.failure(409,'평가 전 안내를 확인해 주세요.'); end if;
       if p_body->>'epoch' is distinct from cfg.epoch or p_body->>'assessment_version' is distinct from cfg.source->>'survey_version' then return evaluate_private.failure(409,'평가가 초기화되었습니다. 새 평가로 다시 접속해 주세요.'); end if;
       select * into strict who from evaluate_private.admissions where admission_id=sess.admission_id;
-      if who.complete then return evaluate_private.failure(409,'이미 제출한 평가입니다.'); end if;
+      if who.complete then return evaluate_private.failure(409,'평가는 1회 참여할 수 있습니다.'); end if;
       answers=p_body->'answers';
       if jsonb_typeof(answers) is distinct from 'object' then return evaluate_private.failure(400,'모든 문항에 답변해 주세요.'); end if;
       if (select count(*) from jsonb_object_keys(answers))<>jsonb_array_length(cfg.source->'questions') then return evaluate_private.failure(400,'모든 문항에 답변해 주세요.'); end if;
@@ -209,7 +204,7 @@ begin
         ix=(raw_answer::text)::integer;
         if ix>=jsonb_array_length(q->'options') then return evaluate_private.failure(400,'선택할 수 없는 답변이 포함되어 있습니다.'); end if;
       end loop;
-      insert into evaluate_private.round_responses(nickname,answers) values(who.nickname,answers);
+      insert into evaluate_private.round_responses(answers) values(answers);
       update evaluate_private.admissions set complete=true where admission_id=who.admission_id;
       return evaluate_private.reply(200,'{"complete":true}'::jsonb);
     end if;
@@ -218,7 +213,7 @@ begin
     if p_route='/api/admin/export' then
       result=evaluate_private.dashboard();
       if (result->>'completed')::integer=0 then return evaluate_private.failure(403,'제출된 평가가 없습니다.'); end if;
-      select count(*),coalesce(jsonb_agg(jsonb_build_object('nickname',r.nickname,'answers',r.answers) order by r.response_id),'[]'::jsonb)
+      select count(*),coalesce(jsonb_agg(jsonb_build_object('answers',r.answers) order by r.response_id),'[]'::jsonb)
         into saved,responses from evaluate_private.round_responses r;
       return evaluate_private.reply(200,result||jsonb_build_object('responses',responses,'response_count',saved,'unavailable_response_count',cfg.legacy_count));
     end if;
@@ -229,24 +224,22 @@ begin
     end if;
     if p_route='/api/admin/reset' then
       if p_body->>'confirmation' is distinct from '정말로 초기화 하시겠습니까?' or sess.reset_hash is null or sess.reset_expires<now() or sess.reset_epoch<>cfg.epoch or sess.reset_hash<>encode(extensions.digest(coalesce(p_body->>'token',''),'sha256'),'hex') then return evaluate_private.failure(400,'초기화 확인창을 다시 열고 확인해 주세요.'); end if;
-      next_name=btrim(regexp_replace(coalesce(p_body->>'name',''),'[[:space:]]+',' ','g'));
-      if length(next_name)>60 or next_name~'[[:cntrl:]]' then return evaluate_private.failure(400,'평가 이름은 60자 이내로 입력해 주세요.'); end if;
-      delete from evaluate_private.round_responses;
+      delete from evaluate_private.round_responses where response_id is not null;
       delete from evaluate_private.sessions where role='evaluate';
-      delete from evaluate_private.admissions;
-      delete from evaluate_private.legacy_counts;
-      delete from evaluate_private.login_limits;
+      delete from evaluate_private.admissions where admission_id is not null;
+      delete from evaluate_private.legacy_counts where question is not null;
+      delete from evaluate_private.login_limits where bucket is not null;
       update evaluate_private.settings set epoch=gen_random_uuid()::text,secret=encode(extensions.gen_random_bytes(32),'hex'),legacy_count=0,
-        assessment_name=coalesce(nullif(next_name,''),'업무환경 심리평가') where singleton;
-      update evaluate_private.sessions set reset_hash=null,reset_expires=null,reset_epoch=null;
+        assessment_name='업무환경 심리평가' where singleton;
+      update evaluate_private.sessions set reset_hash=null,reset_expires=null,reset_epoch=null where role='admin';
       return evaluate_private.reply(200,'{"reset":true}'::jsonb);
     end if;
   end if;
   return evaluate_private.failure(404,'지원하지 않는 요청입니다.');
-end $$;
+end $function$;
+
 revoke execute on all functions in schema evaluate_private from public,anon,authenticated;
 revoke all on function public.evaluate_api(text,jsonb,text,text) from public,anon,authenticated;
 grant execute on function public.evaluate_api(text,jsonb,text,text) to service_role;
-comment on table evaluate_private.round_responses is 'Current-round nickname and answers only. No employee identity, IP, device token, timestamp or submission sequence.';
 notify pgrst,'reload schema';
 commit;
