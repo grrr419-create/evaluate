@@ -40,7 +40,7 @@ test('button-only admission, same-IP colleagues, atomic submissions and reset ep
   assert.equal(/participants|departments|people|nickname|pending|total/.test(JSON.stringify(dashboard)),false);
   const completeSession=resumed;
   const blocked=await call(db,'/api/evaluate/login',{device:device(1)});
-  assert.equal(blocked.status,409);assert.equal(blocked.data.error,'평가는 기기 당 1회 참여할 수 있습니다.');
+  assert.equal(blocked.status,409);assert.equal(blocked.data.error,'평가는 1회 참여할 수 있습니다.');
   assert.equal(duplicate.find(r=>r.status===409).data.error,blocked.data.error);
   assert.equal((await call(db,'/api/evaluate/session',{},completeSession)).data.complete,true);
   await accepted(db,completeSession);

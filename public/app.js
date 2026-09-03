@@ -30,7 +30,7 @@ function renderEvaluation(){
  const v=state.view;document.title='업무환경 심리평가 | HANSHIN';
  if(!v){app.innerHTML=header()+'<main class="center-page">'+alertBox()+button('다시 불러오기','refresh')+'</main>';return;}
  let main='';
- if(v.complete){main='<main class="center-page"><div class="completion-icon" aria-hidden="true">✓</div><p class="eyebrow">ASSESSMENT COMPLETED</p><h1>평가 제출이 완료되었습니다.</h1><p class="subtle">소중한 의견을 남겨주셔서 감사합니다.<br>더 나은 근무환경을 만드는 데 활용하겠습니다.</p><div class="completion-note">평가는 기기 당 1회 참여할 수 있습니다.</div>'+button('로그아웃','logout','primary-button')+'</main>';}
+ if(v.complete){main='<main class="center-page"><div class="completion-icon" aria-hidden="true">✓</div><p class="eyebrow">ASSESSMENT COMPLETED</p><h1>평가 제출이 완료되었습니다.</h1><p class="subtle">소중한 의견을 남겨주셔서 감사합니다.<br>더 나은 근무환경을 만드는 데 활용하겠습니다.</p><div class="completion-note">평가는 1회 참여할 수 있습니다.</div>'+button('로그아웃','logout','primary-button')+'</main>';}
  else if(!v.accepted){main='<main class="notice-page" aria-label="평가 안내">'+alertBox()+'<article class="notice-card"><div class="notice-content">'+esc(v.notice||'등록된 안내 문구가 없습니다.')+'</div></article>'+button('평가 시작하기','acknowledge','primary-button',state.busy)+'</main>';}
  else{
   const n=countAnswered(),total=v.questions.length;
