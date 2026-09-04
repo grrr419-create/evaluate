@@ -1,3 +1,5 @@
+import { ASSESSMENT_CRITERIA, assessmentSummary } from './assessment-rules.js?v=2.4.0';
+
 const TITLE = '업무환경 심리평가';
 const LOGO = `<span class="logo-mark" aria-hidden="true">H</span><div class="logo-text">HANSHIN<small>${TITLE}</small></div>`;
 export function escapeHtml(value) {
@@ -92,6 +94,40 @@ function statistics(data) {
     })
     .join('')}</div>`;
 }
+
+function criteriaPanel() {
+  return `<section class="panel criteria-panel" aria-labelledby="criteria-title">
+    <div class="section-heading criteria-heading"><div><h2 id="criteria-title">평가 기준</h2><p>참여자별 14개 문항의 ‘예’ 응답 개수를 기준으로 판정합니다.</p></div></div>
+    <div class="criteria-grid">${ASSESSMENT_CRITERIA.map(
+      (grade) =>
+        `<article class="criteria-card grade-${grade.key}"><span>${escapeHtml(grade.label)}</span><small>‘예’ 응답</small><strong>${escapeHtml(grade.criterion)}</strong></article>`,
+    ).join('')}</div>
+  </section>`;
+}
+
+function overallAssessment(data) {
+  if (!data.completed)
+    return `<section class="panel overall-panel" aria-labelledby="overall-title"><div class="section-heading"><h2 id="overall-title">현장 종합평가</h2></div><div class="empty-results"><h3>아직 제출된 평가가 없습니다.</h3><p>평가가 제출되면 종합판정과 등급별 인원을 확인할 수 있습니다.</p></div></section>`;
+  const summary = assessmentSummary(data);
+  if (!summary)
+    return `<section class="panel overall-panel" aria-labelledby="overall-title"><div class="section-heading"><h2 id="overall-title">현장 종합평가</h2></div><div class="empty-results"><h3>종합평가를 계산하는 중입니다.</h3><p>잠시 후 새로고침해 주세요.</p></div></section>`;
+  return `<section class="panel overall-panel" aria-labelledby="overall-title">
+    <div class="section-heading"><h2 id="overall-title">현장 종합평가</h2></div>
+    <div class="overall-metrics">
+      <article class="overall-metric"><span>종합판정</span><strong class="grade-${summary.grade.key}">${escapeHtml(summary.grade.label)}</strong></article>
+      <article class="overall-metric"><span>평균 ‘예’ 응답</span><strong>${summary.average.toFixed(1)}<small>개 / ${data.statistics.length}개</small></strong></article>
+    </div>
+    <div class="grade-summary-grid">${ASSESSMENT_CRITERIA.map((grade) => {
+      const count = summary.distribution[grade.key];
+      return `<article class="grade-summary-card grade-${grade.key}"><span>${escapeHtml(grade.label)}</span><strong>${count}명 <small>(${Math.round((count / data.completed) * 100)}%)</small></strong></article>`;
+    }).join('')}</div>
+    <div class="assessment-interpretation">
+      <article><h3>현재 상태</h3><p>${escapeHtml(summary.grade.state)}</p></article>
+      <article><h3>평가 내용</h3><p>${escapeHtml(summary.grade.description)}</p></article>
+    </div>
+  </section>`;
+}
+
 export function adminView(state) {
   const data = state.data;
   return `<div class="admin-layout"><div class="admin-main">
@@ -103,7 +139,7 @@ export function adminView(state) {
           ? `<section class="round-summary" aria-label="현재 평가">
         <div><span>현재 평가</span><h2>${escapeHtml(data.name)}</h2><p>마지막 초기화 이후 제출된 평가를 집계합니다.</p></div>
         <div class="submitted-count"><span>참여 완료</span><strong>${data.completed}<small>명</small></strong></div>
-      </section><section class="panel" id="statistics"><div class="section-heading"><h2>문항별 응답 통계</h2>${button(state.exporting ? '엑셀 생성 중…' : '↓ 통계·개별 응답 엑셀 다운로드', 'export-results', 'secondary-button', !data.completed || state.exporting)}</div>${statistics(data)}</section>`
+      </section>${criteriaPanel()}${overallAssessment(data)}<section class="panel" id="statistics"><div class="section-heading"><h2>문항별 응답 통계</h2>${button(state.exporting ? '엑셀 생성 중…' : '↓ 통계·개별 응답 엑셀 다운로드', 'export-results', 'secondary-button', !data.completed || state.exporting)}</div>${statistics(data)}</section>`
           : ''
       }
       ${footer(true)}

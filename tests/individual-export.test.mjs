@@ -60,22 +60,39 @@ test('Excel includes separate anonymous answers without names or technical ident
       /nickname|device|employee|response_id|timestamp|session/.test(JSON.stringify(exported)),
       false,
     );
-    const makeExcel = await writer(),
-      bytes = makeExcel(exported),
+    const binary = {
+        ...exported,
+        statistics: exported.statistics.map((question) => ({
+          ...question,
+          options: ['예', '아니오'],
+          counts: [1, 1],
+          answered: 2,
+        })),
+        responses: exported.responses.map((response) => ({
+          answers: {
+            'question-a': response.answers['question-a'],
+            'question-b': response.answers['question-b'] === 1 ? 0 : 1,
+          },
+        })),
+      },
+      makeExcel = await writer(),
+      bytes = makeExcel(binary),
       files = unzip(bytes);
     assert.equal(files.get('xl/workbook.xml').match(/<sheet /g).length, 3);
     assert.match(files.get('xl/workbook.xml'), /name="문항별 통계"/);
     assert.equal(/평가 현황|개별 응답 안내/.test(files.get('xl/workbook.xml')), false);
-    assert.match(files.get('xl/worksheets/sheet1.xml'), /<c r="B3" s="5"><v>2<\/v>/);
-    exported.responses.forEach((r, i) => {
+    assert.match(files.get('xl/worksheets/sheet1.xml'), /현장 종합평가 및 문항별 통계/);
+    assert.match(files.get('xl/worksheets/sheet1.xml'), /<c r="B6" s="7"><v>2<\/v>/);
+    binary.responses.forEach((r, i) => {
       const xml = files.get('xl/worksheets/sheet' + (i + 2) + '.xml');
-      assert.equal(xml.match(/<row /g).length, 4);
-      assert.match(xml, /<c r="A2"[^>]*><is><t[^>]*>문항<\/t>/);
-      assert.match(xml, /<c r="B2"[^>]*><is><t[^>]*>선택 답변<\/t>/);
+      assert.equal(xml.match(/<row /g).length, 10);
+      assert.match(xml, /<c r="B3"[^>]*><is><t[^>]*>선택 답변<\/t>/);
+      assert.match(xml, /○ 현재 상태/);
+      assert.match(xml, /○ 평가 내용/);
       assert.equal(/문항 번호|업무환경 심리평가 ·/.test(xml), false);
       assert.equal(/바람|SUM|닉네임/.test(xml), false);
-      assert.ok(xml.includes('응답 ' + String(i + 1).padStart(3, '0')));
-      exported.statistics.forEach((q) => assert.ok(xml.includes(q.options[r.answers[q.id]])));
+      assert.ok(xml.includes('개별 응답 ' + String(i + 1).padStart(3, '0')));
+      binary.statistics.forEach((q) => assert.ok(xml.includes(q.options[r.answers[q.id]])));
     });
     assert.equal(/<f[ >]/.test([...files.values()].join('')), false);
     assert.throws(() => makeExcel({ ...exported, response_count: 1 }));
@@ -86,9 +103,7 @@ test('Excel includes separate anonymous answers without names or technical ident
         responses: [{ answers: { 'question-a': 7, 'question-b': 1 } }, exported.responses[1]],
       }),
     );
-    assert.throws(() =>
-      makeExcel({ ...exported, responses: [exported.responses[0], exported.responses[0]] }),
-    );
+    assert.throws(() => makeExcel({ ...binary, responses: [binary.responses[0], binary.responses[0]] }));
     const output = new URL('../.private/test-output/', import.meta.url);
     await mkdir(output, { recursive: true });
     await writeFile(new URL('anonymous-statistics.xlsx', output), bytes);
@@ -111,27 +126,28 @@ test('Yes/No statistics use one row per question and correctly pair counts and p
   const files = unzip((await writer())(data)),
     xml = files.get('xl/worksheets/sheet1.xml');
   const cell = (ref) => xml.match(new RegExp('<c r="' + ref + '"[^>]*>(.*?)</c>'))?.[1];
-  ['문항', '참여', '예', '아니오'].forEach((label, i) =>
-    assert.ok(cell(String.fromCharCode(65 + i) + '2').includes('>' + label + '</t>')),
+  ['문   항', '예', '아니오'].forEach((label, i) =>
+    assert.ok(cell(String.fromCharCode(65 + i) + '9').includes('>' + label + '</t>')),
   );
-  assert.equal(cell('B3'), '<v>3</v>');
+  assert.equal(cell('B6'), '<v>3</v>');
+  assert.equal(cell('B7'), '<v>3</v>');
   for (const [ref, value] of [
-    ['C3', '2명 (66.7%)'],
-    ['D3', '1명 (33.3%)'],
-    ['C4', '0명 (0%)'],
-    ['D4', '3명 (100%)'],
+    ['B10', '2명 (66.7%)'],
+    ['C10', '1명 (33.3%)'],
+    ['B11', '0명 (0%)'],
+    ['C11', '3명 (100%)'],
   ])
     assert.ok(cell(ref).includes(value));
-  assert.equal(xml.match(/<row /g).length, 4);
-  assert.match(xml, /<pane ySplit="2" topLeftCell="A3"/);
+  assert.equal(xml.match(/<row /g).length, 11);
   assert.equal(files.get('xl/workbook.xml').match(/<sheet /g).length, 4);
+  assert.match(files.get('xl/workbook.xml'), /개별 응답 001\(미흡\)/);
   assert.equal(
     [...files.values()].some((value) => value.includes(data.name)),
     false,
   );
 });
 
-test('Excel preserves pre-update responses when a question is added', async () => {
+test('Excel rejects incomplete responses from before the mandatory-question reset', async () => {
   const data = {
     name: '업무환경 심리평가',
     completed: 2,
@@ -143,12 +159,5 @@ test('Excel preserves pre-update responses when a question is added', async () =
     ],
     responses: [{ answers: { old: 0 } }, { answers: { old: 1, new: 0 } }],
   };
-  const files = unzip((await writer())(data));
-  const statistics = files.get('xl/worksheets/sheet1.xml');
-  const oldResponse = files.get('xl/worksheets/sheet2.xml');
-  const newResponse = files.get('xl/worksheets/sheet3.xml');
-  assert.match(statistics, /<c r="B4" s="5"><v>1<\/v>/);
-  assert.match(statistics, /1명 \(100%\)/);
-  assert.match(oldResponse, /미응답 \(문항 추가 전 제출\)/);
-  assert.doesNotMatch(newResponse, /미응답 \(문항 추가 전 제출\)/);
+  assert.throws(() => StatisticsExcel.create(data), /개별 답변 검증/);
 });

@@ -5,6 +5,7 @@ export const assets = [
   'app.js',
   'api.js',
   'views.js',
+  'assessment-rules.js',
   'confirmation.js',
   'statistics-excel.js',
   'style.css',

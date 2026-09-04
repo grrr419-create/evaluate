@@ -1,6 +1,6 @@
-import { createApi } from './api.js?v=2.3.1';
-import { loginView, evaluationView, adminView, answeredCount } from './views.js?v=2.3.1';
-import { createConfirmation } from './confirmation.js?v=2.3.1';
+import { createApi } from './api.js?v=2.4.0';
+import { loginView, evaluationView, adminView, answeredCount } from './views.js?v=2.4.0';
+import { createConfirmation } from './confirmation.js?v=2.4.0';
 
 const root = document.getElementById('app');
 const role = document.documentElement.dataset.role || 'evaluate';
@@ -18,6 +18,12 @@ const state = {
   exporting: false,
 };
 const route = (action) => `/api/${role}/${action}`;
+
+function dashboardSnapshot(value) {
+  if (!value) return value;
+  const { responses, response_count, unavailable_response_count, ...dashboard } = value;
+  return dashboard;
+}
 
 function render() {
   document.title =
@@ -43,9 +49,11 @@ function fail(error, { stale = false } = {}) {
 
 async function load({ poll = false } = {}) {
   try {
-    const next = await api.request(route(role === 'admin' ? 'dashboard' : 'session'));
+    let next = await api.request(route(role === 'admin' ? 'dashboard' : 'session'));
     if (role === 'admin') {
-      if (poll && !state.error && JSON.stringify(next) === JSON.stringify(state.data)) return;
+      if (poll && !state.error && JSON.stringify(next) === JSON.stringify(dashboardSnapshot(state.data)))
+        return;
+      if (next.completed > 0) next = await api.request('/api/admin/export', {});
       state.data = next;
     } else {
       const old = state.view;
@@ -172,7 +180,7 @@ async function download() {
   render();
   try {
     const [{ StatisticsExcel }, data] = await Promise.all([
-      import('./statistics-excel.js?v=2.3.1'),
+      import('./statistics-excel.js?v=2.4.0'),
       api.request('/api/admin/export', {}),
     ]);
     const blob = new Blob([StatisticsExcel.create(data)], {

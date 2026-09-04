@@ -19,6 +19,12 @@ const state = {
 };
 const route = (action) => `/api/${role}/${action}`;
 
+function dashboardSnapshot(value) {
+  if (!value) return value;
+  const { responses, response_count, unavailable_response_count, ...dashboard } = value;
+  return dashboard;
+}
+
 function render() {
   document.title =
     role === 'admin'
@@ -43,9 +49,11 @@ function fail(error, { stale = false } = {}) {
 
 async function load({ poll = false } = {}) {
   try {
-    const next = await api.request(route(role === 'admin' ? 'dashboard' : 'session'));
+    let next = await api.request(route(role === 'admin' ? 'dashboard' : 'session'));
     if (role === 'admin') {
-      if (poll && !state.error && JSON.stringify(next) === JSON.stringify(state.data)) return;
+      if (poll && !state.error && JSON.stringify(next) === JSON.stringify(dashboardSnapshot(state.data)))
+        return;
+      if (next.completed > 0) next = await api.request('/api/admin/export', {});
       state.data = next;
     } else {
       const old = state.view;
