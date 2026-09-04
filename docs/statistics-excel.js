@@ -1,4 +1,4 @@
-import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.4.0';
+import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.4.1';
 
 /* Minimal XLSX writer: fixed XML schema, inline strings, numeric counts, no formulas/macros. */
 ('use strict');
@@ -184,21 +184,22 @@ export const StatisticsExcel = (() => {
       );
     });
     rows.push(
-      row(7, [cell('A7', '참여인원', 6), cell('B7', data.completed, 7), cell('C7', 1, 8)], 33.95),
+      row(7, [cell('A7', '참여인원', 20), cell('B7', data.completed, 21), cell('C7', 1, 22)], 33.95),
       row(8, [cell('A8', '', 0), cell('B8', '', 0), cell('C8', '', 0)]),
       row(9, [cell('A9', '문   항', 3), cell('B9', '예', 4), cell('C9', '아니오', 5)], 33.95),
     );
     data.statistics.forEach((question, index) => {
       const number = index + 10,
         yes = question.counts[question.options.indexOf('예')],
-        no = question.counts[question.options.indexOf('아니오')];
+        no = question.counts[question.options.indexOf('아니오')],
+        last = index === data.statistics.length - 1;
       rows.push(
         row(
           number,
           [
-            cell(`A${number}`, questionText(question.text), 9),
-            cell(`B${number}`, `${yes}명 (${percentText(yes, data.completed)})`, 10),
-            cell(`C${number}`, `${no}명 (${percentText(no, data.completed)})`, 11),
+            cell(`A${number}`, questionText(question.text), last ? 23 : 9),
+            cell(`B${number}`, `${yes}명 (${percentText(yes, data.completed)})`, last ? 24 : 10),
+            cell(`C${number}`, `${no}명 (${percentText(no, data.completed)})`, last ? 24 : 11),
           ],
           33.95,
         ),
@@ -237,17 +238,22 @@ export const StatisticsExcel = (() => {
         50.1,
       ),
       row(2, [cell('A2', '', 0), cell('B2', '', 0)]),
-      row(3, [cell('A3', '', 3), cell('B3', '선택 답변', 5)], 39.95),
+      row(3, [cell('A3', '문   항', 3), cell('B3', '선택 답변', 31)], 39.95),
     ];
     data.statistics.forEach((question, questionIndex) => {
       const number = questionIndex + 4,
-        answer = question.options[response.answers[question.id]];
+        answer = question.options[response.answers[question.id]],
+        last = questionIndex === data.statistics.length - 1;
       rows.push(
         row(
           number,
           [
-            cell(`A${number}`, questionText(question.text), 9),
-            cell(`B${number}`, answer, answer === '아니오' ? 13 : 12),
+            cell(`A${number}`, questionText(question.text), last ? 23 : 9),
+            cell(
+              `B${number}`,
+              answer,
+              last ? (answer === '아니오' ? 26 : 25) : answer === '아니오' ? 13 : 12,
+            ),
           ],
           39.95,
         ),
@@ -257,12 +263,12 @@ export const StatisticsExcel = (() => {
       row(spacerRow, [cell(`A${spacerRow}`, '', 0), cell(`B${spacerRow}`, '', 0)]),
       row(
         stateHeadingRow,
-        [cell(`A${stateHeadingRow}`, '○ 현재 상태', 14), cell(`B${stateHeadingRow}`, '', 15)],
+        [cell(`A${stateHeadingRow}`, '○ 현재 상태', 27), cell(`B${stateHeadingRow}`, '', 28)],
         39.95,
       ),
       row(
         stateRow,
-        [cell(`A${stateRow}`, grade.state.replace(/\.$/, ''), 16), cell(`B${stateRow}`, '', 17)],
+        [cell(`A${stateRow}`, grade.state.replace(/\.$/, ''), 29), cell(`B${stateRow}`, '', 30)],
         39.95,
       ),
       row(
@@ -299,10 +305,10 @@ export const StatisticsExcel = (() => {
   const styles =
     declaration +
     `<styleSheet xmlns="${mainNamespace}"><numFmts count="2"><numFmt numFmtId="164" formatCode="0&quot;명&quot;"/><numFmt numFmtId="165" formatCode="0%"/></numFmts>` +
-    '<fonts count="6"><font><sz val="10"/><name val="Malgun Gothic"/><color rgb="FF12304A"/></font><font><b/><sz val="16"/><name val="Malgun Gothic"/><color rgb="FFFFFFFF"/></font><font><b/><sz val="15"/><name val="Malgun Gothic"/><color rgb="FFFFFFFF"/></font><font><b/><sz val="10"/><name val="Malgun Gothic"/><color rgb="FF12304A"/></font><font><sz val="10"/><name val="Malgun Gothic"/><color rgb="FF000000"/></font><font><sz val="10"/><name val="Malgun Gothic"/><color rgb="FFB64747"/></font></fonts>' +
+    '<fonts count="7"><font><sz val="10"/><name val="Malgun Gothic"/><color rgb="FF12304A"/></font><font><b/><sz val="16"/><name val="Malgun Gothic"/><color rgb="FFFFFFFF"/></font><font><b/><sz val="15"/><name val="Malgun Gothic"/><color rgb="FFFFFFFF"/></font><font><b/><sz val="10"/><name val="Malgun Gothic"/><color rgb="FF12304A"/></font><font><sz val="10"/><name val="Malgun Gothic"/><color rgb="FF000000"/></font><font><sz val="10"/><name val="Malgun Gothic"/><color rgb="FFB64747"/></font><font><b/><sz val="10"/><name val="Malgun Gothic"/><color rgb="FF000000"/></font></fonts>' +
     '<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF12304A"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEAF1F7"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFCE8E8"/></patternFill></fill></fills>' +
-    '<borders count="6"><border/><border><left style="thin"/><right style="thin"/><top style="hair"/><bottom style="hair"/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="double"/></border><border><left style="thin"/><right style="thin"/><bottom style="thin"/></border><border><left style="thin"/><right style="thin"/><bottom style="double"/></border><border><left style="thin"/><right style="thin"/><bottom style="hair"/></border></borders>' +
-    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="20">' +
+    '<borders count="9"><border/><border><left style="thin"/><right style="thin"/><top style="hair"/><bottom style="hair"/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="double"/></border><border><left style="thin"/><right style="thin"/><bottom style="thin"/></border><border><left style="thin"/><right style="thin"/><bottom style="double"/></border><border><left style="thin"/><right style="thin"/><bottom style="hair"/></border><border><left style="thin"/><right style="thin"/><top style="hair"/><bottom style="thin"/></border><border><left style="thin"/><right style="thin"/><top style="thin"/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders>' +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="32">' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>' +
@@ -323,6 +329,18 @@ export const StatisticsExcel = (() => {
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="5" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>' +
+    '<xf numFmtId="0" fontId="3" fillId="0" borderId="6" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+    '<xf numFmtId="164" fontId="0" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+    '<xf numFmtId="165" fontId="0" fillId="0" borderId="6" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="6" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="6" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="4" fillId="0" borderId="6" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="5" fillId="4" borderId="6" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="3" fillId="3" borderId="7" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>' +
+    '<xf numFmtId="0" fontId="3" fillId="3" borderId="7" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="8" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="8" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>' +
+    '<xf numFmtId="0" fontId="6" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
     '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 
   function create(data) {

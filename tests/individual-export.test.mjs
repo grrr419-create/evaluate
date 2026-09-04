@@ -83,10 +83,17 @@ test('Excel includes separate anonymous answers without names or technical ident
     assert.equal(/평가 현황|개별 응답 안내/.test(files.get('xl/workbook.xml')), false);
     assert.match(files.get('xl/worksheets/sheet1.xml'), /현장 종합평가 및 문항별 통계/);
     assert.match(files.get('xl/worksheets/sheet1.xml'), /<c r="B6" s="7"><v>2<\/v>/);
+    assert.match(files.get('xl/worksheets/sheet1.xml'), /<c r="A7" s="20"/);
+    assert.match(files.get('xl/worksheets/sheet1.xml'), /<c r="A11" s="23"/);
+    assert.match(files.get('xl/worksheets/sheet1.xml'), /<c r="C11" s="24"/);
     binary.responses.forEach((r, i) => {
       const xml = files.get('xl/worksheets/sheet' + (i + 2) + '.xml');
       assert.equal(xml.match(/<row /g).length, 10);
-      assert.match(xml, /<c r="B3"[^>]*><is><t[^>]*>선택 답변<\/t>/);
+      assert.match(xml, /<c r="A3" s="3"[^>]*><is><t[^>]*>문   항<\/t>/);
+      assert.match(xml, /<c r="B3" s="31"[^>]*><is><t[^>]*>선택 답변<\/t>/);
+      assert.match(xml, /<c r="A5" s="23"/);
+      assert.match(xml, /<c r="A7" s="27"/);
+      assert.match(xml, /<c r="A8" s="29"/);
       assert.match(xml, /○ 현재 상태/);
       assert.match(xml, /○ 평가 내용/);
       assert.equal(/문항 번호|업무환경 심리평가 ·/.test(xml), false);
