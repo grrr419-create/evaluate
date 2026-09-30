@@ -1,4 +1,4 @@
-import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.4.3';
+import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.4.4';
 
 /* Minimal XLSX writer: fixed XML schema, inline strings, numeric counts, no formulas/macros. */
 ('use strict');
@@ -171,7 +171,7 @@ export const StatisticsExcel = (() => {
       const count = summary.distribution[grade.key],
         number = index + 4,
         criterion = grade.key === 'good' ? '12개 이상' : grade.key === 'normal' ? '9~11개' : '8개 이하',
-        label = `${grade.label}: ‘예’ ${criterion}`;
+        label = `${grade.label} : ‘예’ 응답 ${criterion}`;
       rows.push(
         row(
           number,
