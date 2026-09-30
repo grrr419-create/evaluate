@@ -79,7 +79,7 @@ test('Excel includes separate anonymous answers without names or technical ident
       bytes = makeExcel(binary),
       files = unzip(bytes);
     assert.equal(files.get('xl/workbook.xml').match(/<sheet /g).length, 3);
-    assert.match(files.get('xl/workbook.xml'), /name="문항별 통계"/);
+    assert.match(files.get('xl/workbook.xml'), /name="결과\(요약\)"/);
     assert.equal(/평가 현황|개별 응답 안내/.test(files.get('xl/workbook.xml')), false);
     assert.match(files.get('xl/worksheets/sheet1.xml'), /업무환경 심리평가 결과\(요약\)/);
     assert.match(files.get('xl/worksheets/sheet1.xml'), /양호\(우수\) : ‘예’ 응답 13개 이상/);

@@ -349,7 +349,7 @@ export const StatisticsExcel = (() => {
     const summary = assessmentSummary(data);
     if (!summary) throw new Error('평가 결과를 판정하지 못했습니다. 새로고침 후 다시 시도해 주세요.');
     const sheets = [
-      { name: '문항별 통계', xml: summarySheet(data, summary) },
+      { name: '결과(요약)', xml: summarySheet(data, summary) },
       ...data.responses.map((response, index) => responseSheet(data, response, index)),
     ];
     const files = [

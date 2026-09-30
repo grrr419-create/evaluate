@@ -1,6 +1,6 @@
-import { createApi } from './api.js?v=2.5.0';
-import { loginView, evaluationView, adminView, answeredCount } from './views.js?v=2.5.0';
-import { createConfirmation } from './confirmation.js?v=2.5.0';
+import { createApi } from './api.js?v=2.5.1';
+import { loginView, evaluationView, adminView, answeredCount } from './views.js?v=2.5.1';
+import { createConfirmation } from './confirmation.js?v=2.5.1';
 
 const root = document.getElementById('app');
 const role = document.documentElement.dataset.role || 'evaluate';
@@ -180,7 +180,7 @@ async function download() {
   render();
   try {
     const [{ StatisticsExcel }, data] = await Promise.all([
-      import('./statistics-excel.js?v=2.5.0'),
+      import('./statistics-excel.js?v=2.5.1'),
       api.request('/api/admin/export', {}),
     ]);
     const blob = new Blob([StatisticsExcel.create(data)], {
@@ -189,7 +189,7 @@ async function download() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `업무환경_심리평가_${data.name.replace(/[\\/:*?"<>|]/g, '_')}.xlsx`;
+    link.download = '업무환경 심리평가 결과.xlsx';
     document.body.append(link);
     link.click();
     link.remove();

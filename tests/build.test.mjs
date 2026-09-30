@@ -31,6 +31,8 @@ test('both published entry points and every module use the same release version'
         assert.equal(query, `v=${result.version}`);
       }
     }
+    const app = await readFile(join(directory, 'app.js'), 'utf8');
+    assert.match(app, /link\.download = '업무환경 심리평가 결과\.xlsx'/);
   } finally {
     assert.ok(resolve(directory).startsWith(resolve(prefix)));
     await rm(directory, { recursive: true, force: true });

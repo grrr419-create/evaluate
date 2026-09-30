@@ -189,7 +189,7 @@ async function download() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `업무환경_심리평가_${data.name.replace(/[\\/:*?"<>|]/g, '_')}.xlsx`;
+    link.download = '업무환경 심리평가 결과.xlsx';
     document.body.append(link);
     link.click();
     link.remove();
