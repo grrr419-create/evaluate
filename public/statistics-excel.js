@@ -163,7 +163,7 @@ export const StatisticsExcel = (() => {
 
   function summarySheet(data, summary) {
     const rows = [
-      row(1, [cell('A1', '현장 종합평가 및 문항별 통계', 1), cell('B1', '', 1), cell('C1', '', 1)], 36),
+      row(1, [cell('A1', '업무환경 심리평가 결과(요약)', 1), cell('B1', '', 1), cell('C1', '', 1)], 36),
       row(2, [cell('A2', '', 0), cell('B2', '', 0), cell('C2', '', 0)]),
       row(3, [cell('A3', '등   급', 3), cell('B3', '인   원', 4), cell('C3', '구성비', 5)], 33.95),
     ];
