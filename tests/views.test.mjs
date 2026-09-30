@@ -29,14 +29,14 @@ test('survey rendering escapes source text and disables incomplete or stale subm
 });
 
 test('admin places criteria between the current round and the overall assessment', () => {
-  const questions = Array.from({ length: 14 }, (_, index) => ({
+  const questions = Array.from({ length: 15 }, (_, index) => ({
     id: `q${index + 1}`,
     text: `문항 ${index + 1}`,
     options: ['예', '아니오'],
     counts: [0, 0],
     answered: 5,
   }));
-  const scores = [13, 12, 10, 9, 7];
+  const scores = [14, 13, 11, 10, 8];
   const responses = scores.map((score) => ({
     answers: Object.fromEntries(questions.map((question, index) => [question.id, index < score ? 0 : 1])),
   }));
@@ -54,9 +54,9 @@ test('admin places criteria between the current round and the overall assessment
     criteria = html.indexOf('평가 기준'),
     overall = html.indexOf('현장 종합평가');
   assert.ok(current < criteria && criteria < overall);
-  assert.match(html, /12개 이상/);
-  assert.match(html, /9개~11개/);
-  assert.match(html, /0개~8개/);
-  assert.match(html, /10\.2<small>개 \/ 14개/);
+  assert.match(html, /13개 이상/);
+  assert.match(html, /10개~12개/);
+  assert.match(html, /0개~9개/);
+  assert.match(html, /11\.2<small>개 \/ 15개/);
   assert.match(html, /2명 <small>\(40%\)/);
 });

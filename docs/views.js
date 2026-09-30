@@ -1,4 +1,4 @@
-import { ASSESSMENT_CRITERIA, assessmentSummary } from './assessment-rules.js?v=2.4.4';
+import { ASSESSMENT_CRITERIA, assessmentSummary } from './assessment-rules.js?v=2.5.0';
 
 const TITLE = '업무환경 심리평가';
 const LOGO = `<span class="logo-mark" aria-hidden="true">H</span><div class="logo-text">HANSHIN<small>${TITLE}</small></div>`;
@@ -95,9 +95,9 @@ function statistics(data) {
     .join('')}</div>`;
 }
 
-function criteriaPanel() {
+function criteriaPanel(questionCount) {
   return `<section class="panel criteria-panel" aria-labelledby="criteria-title">
-    <div class="section-heading criteria-heading"><div><h2 id="criteria-title">평가 기준</h2><p>참여자별 14개 문항의 ‘예’ 응답 개수를 기준으로 판정합니다.</p></div></div>
+    <div class="section-heading criteria-heading"><div><h2 id="criteria-title">평가 기준</h2><p>참여자별 ${questionCount}개 문항의 ‘예’ 응답 개수를 기준으로 판정합니다.</p></div></div>
     <div class="criteria-grid">${ASSESSMENT_CRITERIA.map(
       (grade) =>
         `<article class="criteria-card grade-${grade.key}"><span>${escapeHtml(grade.label)}</span><small>‘예’ 응답</small><strong>${escapeHtml(grade.criterion)}</strong></article>`,
@@ -139,7 +139,7 @@ export function adminView(state) {
           ? `<section class="round-summary" aria-label="현재 평가">
         <div><span>현재 평가</span><h2>${escapeHtml(data.name)}</h2><p>마지막 초기화 이후 제출된 평가를 집계합니다.</p></div>
         <div class="submitted-count"><span>참여 완료</span><strong>${data.completed}<small>명</small></strong></div>
-      </section>${criteriaPanel()}${overallAssessment(data)}<section class="panel" id="statistics"><div class="section-heading"><h2>문항별 응답 통계</h2>${button(state.exporting ? '엑셀 생성 중…' : '↓ 통계·개별 응답 엑셀 다운로드', 'export-results', 'secondary-button', !data.completed || state.exporting)}</div>${statistics(data)}</section>`
+      </section>${criteriaPanel(data.statistics.length)}${overallAssessment(data)}<section class="panel" id="statistics"><div class="section-heading"><h2>문항별 응답 통계</h2>${button(state.exporting ? '엑셀 생성 중…' : '↓ 통계·개별 응답 엑셀 다운로드', 'export-results', 'secondary-button', !data.completed || state.exporting)}</div>${statistics(data)}</section>`
           : ''
       }
       ${footer(true)}

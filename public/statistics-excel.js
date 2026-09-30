@@ -170,7 +170,7 @@ export const StatisticsExcel = (() => {
     ASSESSMENT_CRITERIA.forEach((grade, index) => {
       const count = summary.distribution[grade.key],
         number = index + 4,
-        criterion = grade.key === 'good' ? '12개 이상' : grade.key === 'normal' ? '9~11개' : '8개 이하',
+        criterion = grade.key === 'good' ? '13개 이상' : grade.key === 'normal' ? '10~12개' : '9개 이하',
         label = `${grade.label} : ‘예’ 응답 ${criterion}`;
       rows.push(
         row(
