@@ -82,6 +82,9 @@ test('Excel includes separate anonymous answers without names or technical ident
     assert.match(files.get('xl/workbook.xml'), /name="문항별 통계"/);
     assert.equal(/평가 현황|개별 응답 안내/.test(files.get('xl/workbook.xml')), false);
     assert.match(files.get('xl/worksheets/sheet1.xml'), /현장 종합평가 및 문항별 통계/);
+    assert.match(files.get('xl/worksheets/sheet1.xml'), /양호\(우수\): ‘예’ 12개 이상/);
+    assert.match(files.get('xl/worksheets/sheet1.xml'), /보통: ‘예’ 9~11개/);
+    assert.match(files.get('xl/worksheets/sheet1.xml'), /미흡: ‘예’ 8개 이하/);
     assert.match(files.get('xl/worksheets/sheet1.xml'), /<c r="B6" s="7"><v>2<\/v>/);
     assert.match(files.get('xl/worksheets/sheet1.xml'), /<c r="A7" s="20"/);
     assert.match(files.get('xl/worksheets/sheet1.xml'), /<c r="A11" s="23"/);
