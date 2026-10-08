@@ -85,7 +85,7 @@ test('optional free-text question does not block submission and is shown anonymo
   assert.equal(requiredAnswerCount(state.view), 1);
   assert.doesNotMatch(survey, /id="submit-assessment" disabled/);
   assert.match(survey, /<textarea[^>]+maxlength="500"/);
-  assert.match(survey, /개인을 알아볼 수 있는 정보는 입력하지 마세요/);
+  assert.doesNotMatch(survey, /개인을 알아볼 수 있는 정보는 입력하지 마세요/);
   assert.match(survey, /5 \/ 500자/);
 
   const admin = adminView({

@@ -516,7 +516,7 @@ button[disabled] {
 }
 .text-answer-meta {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   margin-top: 9px;
   color: #8498a7;
@@ -1085,9 +1085,7 @@ dialog::backdrop {
     font-size: 16px;
   }
   .text-answer-meta {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
+    align-items: flex-end;
     font-size: 12px;
   }
   .choice {

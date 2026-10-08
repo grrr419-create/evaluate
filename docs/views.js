@@ -1,4 +1,4 @@
-import { ASSESSMENT_CRITERIA, assessmentSummary } from './assessment-rules.js?v=2.6.0';
+import { ASSESSMENT_CRITERIA, assessmentSummary } from './assessment-rules.js?v=2.6.1';
 
 const TITLE = '업무환경 심리평가';
 const LOGO = `<span class="logo-mark" aria-hidden="true">H</span><div class="logo-text">HANSHIN<small>${TITLE}</small></div>`;
@@ -58,7 +58,7 @@ function questionCard(question, index, state) {
     return `<fieldset class="question-card text-question-card" id="question-${index}" ${state.busy || state.stale ? 'disabled' : ''}>
       <legend><span class="question-number">${String(index + 1).padStart(2, '0')}</span><span>${escapeHtml(prompt)}${details.length ? `<small>${escapeHtml(details.join('\n'))}</small>` : ''}</span></legend>
       <div class="text-answer"><textarea name="${escapeHtml(question.id)}" rows="7" maxlength="${maxLength}" placeholder="의견을 자유롭게 작성해 주세요. (선택)" aria-label="${escapeHtml(prompt)}">${escapeHtml(answer)}</textarea>
-      <div class="text-answer-meta"><span>이름·사번 등 개인을 알아볼 수 있는 정보는 입력하지 마세요.</span><span data-counter-for="${escapeHtml(question.id)}">${answer.length} / ${maxLength}자</span></div></div>
+      <div class="text-answer-meta"><span data-counter-for="${escapeHtml(question.id)}">${answer.length} / ${maxLength}자</span></div></div>
     </fieldset>`;
   }
   const options = question.options
