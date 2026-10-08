@@ -237,6 +237,16 @@ test('free-text opinions use paged A4 sheets and every worksheet prints on one p
   assert.match(files.get('xl/worksheets/sheet4.xml'), /○ 주관식 의견/);
   assert.doesNotMatch(files.get('xl/worksheets/sheet4.xml'), /16번 문항/);
   assert.match(files.get('xl/worksheets/sheet4.xml'), /첫 번째 의견/);
+  assert.match(files.get('xl/worksheets/sheet4.xml'), /<c r="A20" s="32"/);
+  assert.match(files.get('xl/worksheets/sheet4.xml'), /<c r="B20" s="33"/);
+  const styleXml = files.get('xl/styles.xml');
+  const cellXfs = styleXml.match(/<cellXfs count="34">([\s\S]*?)<\/cellXfs>/)[1];
+  const responseHeadingStyles = [...cellXfs.matchAll(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)].map(
+    (match) => match[0],
+  );
+  assert.equal(responseHeadingStyles.length, 34);
+  assert.match(responseHeadingStyles[32], /borderId="2"/);
+  assert.match(responseHeadingStyles[33], /borderId="2"/);
   for (let index = 1; index <= 8; index++) {
     const xml = files.get(`xl/worksheets/sheet${index}.xml`);
     assert.match(xml, /paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="1"/);

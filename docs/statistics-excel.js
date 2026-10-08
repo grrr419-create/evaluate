@@ -1,4 +1,4 @@
-import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.6.5';
+import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.6.6';
 
 /* Minimal XLSX writer: fixed XML schema, inline strings, numeric counts, no formulas/macros. */
 ('use strict');
@@ -332,7 +332,7 @@ export const StatisticsExcel = (() => {
       rows.push(
         row(
           opinionHeadingRow,
-          [cell(`A${opinionHeadingRow}`, '○ 주관식 의견', 14), cell(`B${opinionHeadingRow}`, '', 15)],
+          [cell(`A${opinionHeadingRow}`, '○ 주관식 의견', 32), cell(`B${opinionHeadingRow}`, '', 33)],
           27,
         ),
         row(
@@ -453,7 +453,7 @@ export const StatisticsExcel = (() => {
     '<fonts count="7"><font><sz val="10"/><name val="Malgun Gothic"/><color rgb="FF12304A"/></font><font><b/><sz val="16"/><name val="Malgun Gothic"/><color rgb="FFFFFFFF"/></font><font><b/><sz val="15"/><name val="Malgun Gothic"/><color rgb="FFFFFFFF"/></font><font><b/><sz val="10"/><name val="Malgun Gothic"/><color rgb="FF12304A"/></font><font><sz val="10"/><name val="Malgun Gothic"/><color rgb="FF000000"/></font><font><sz val="10"/><name val="Malgun Gothic"/><color rgb="FFB64747"/></font><font><b/><sz val="10"/><name val="Malgun Gothic"/><color rgb="FF000000"/></font></fonts>' +
     '<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF12304A"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEAF1F7"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFCE8E8"/></patternFill></fill></fills>' +
     '<borders count="9"><border/><border><left style="thin"/><right style="thin"/><top style="hair"/><bottom style="hair"/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="double"/></border><border><left style="thin"/><right style="thin"/><bottom style="thin"/></border><border><left style="thin"/><right style="thin"/><bottom style="double"/></border><border><left style="thin"/><right style="thin"/><bottom style="hair"/></border><border><left style="thin"/><right style="thin"/><top style="hair"/><bottom style="thin"/></border><border><left style="thin"/><right style="thin"/><top style="thin"/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders>' +
-    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="32">' +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="34">' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>' +
@@ -486,6 +486,8 @@ export const StatisticsExcel = (() => {
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="8" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="8" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>' +
     '<xf numFmtId="0" fontId="6" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="3" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>' +
+    '<xf numFmtId="0" fontId="3" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>' +
     '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 
   function create(data) {
