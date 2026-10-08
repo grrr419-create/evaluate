@@ -9,7 +9,12 @@ export function escapeHtml(value) {
   );
 }
 export function answeredCount(view, answers) {
-  return (view?.questions ?? []).filter((question) => Number.isInteger(answers[question.id])).length;
+  return (view?.questions ?? []).filter(
+    (question) => question.type !== 'text' && Number.isInteger(answers[question.id]),
+  ).length;
+}
+export function requiredAnswerCount(view) {
+  return (view?.questions ?? []).filter((question) => question.type !== 'text').length;
 }
 function button(label, action, className = 'secondary-button', disabled = false) {
   return `<button class="${className}" data-action="${action}" ${disabled ? 'disabled' : ''}>${label}</button>`;
@@ -45,6 +50,17 @@ function header() {
   return `<header class="topbar"><a class="brand-link" href="./index.html">${LOGO}</a><div class="topbar-right">${button('나가기', 'logout', 'text-button')}</div></header>`;
 }
 function questionCard(question, index, state) {
+  const text = question.text.replace(/^\s*\d+[.)]\s*/, '');
+  if (question.type === 'text') {
+    const maxLength = Number.isInteger(question.max_length) ? question.max_length : 500;
+    const answer = String(state.answers[question.id] ?? '');
+    const [prompt, ...details] = text.split('\n');
+    return `<fieldset class="question-card text-question-card" id="question-${index}" ${state.busy || state.stale ? 'disabled' : ''}>
+      <legend><span class="question-number">${String(index + 1).padStart(2, '0')}</span><span>${escapeHtml(prompt)}${details.length ? `<small>${escapeHtml(details.join('\n'))}</small>` : ''}</span></legend>
+      <div class="text-answer"><textarea name="${escapeHtml(question.id)}" rows="7" maxlength="${maxLength}" placeholder="의견을 자유롭게 작성해 주세요. (선택)" aria-label="${escapeHtml(prompt)}">${escapeHtml(answer)}</textarea>
+      <div class="text-answer-meta"><span>이름·사번 등 개인을 알아볼 수 있는 정보는 입력하지 마세요.</span><span data-counter-for="${escapeHtml(question.id)}">${answer.length} / ${maxLength}자</span></div></div>
+    </fieldset>`;
+  }
   const options = question.options
     .map(
       (option, choice) => `
@@ -52,7 +68,7 @@ function questionCard(question, index, state) {
     )
     .join('');
   return `<fieldset class="question-card" id="question-${index}" ${state.busy || state.stale ? 'disabled' : ''}>
-    <legend><span class="question-number">${String(index + 1).padStart(2, '0')}</span><span>${escapeHtml(question.text.replace(/^\s*\d+[.)]\s*/, ''))}</span></legend>
+    <legend><span class="question-number">${String(index + 1).padStart(2, '0')}</span><span>${escapeHtml(text)}</span></legend>
     <div class="choices">${options}</div>
   </fieldset>`;
 }
@@ -72,13 +88,32 @@ export function evaluationView(state) {
     ${button('평가 시작하기', 'acknowledge', 'primary-button', state.busy)}
   </main>`;
   const unavailable =
-    state.busy || state.stale || answeredCount(view, state.answers) !== view.questions.length;
+    state.busy || state.stale || answeredCount(view, state.answers) !== requiredAnswerCount(view);
   return `${header()}<main class="survey-layout"><section><h1>${escapeHtml(view.name || TITLE)}</h1>${alert(state)}
     ${state.stale ? `<div class="alert warning" role="alert">평가 상태가 변경되었습니다. 새 평가를 불러온 후 작성해 주세요. ${button('새 평가 불러오기', 'reload-assessment')}</div>` : ''}
     <form id="survey-form">${view.questions.map((question, index) => questionCard(question, index, state)).join('')}
       <div class="submit-area"><button class="primary-button" type="submit" id="submit-assessment" ${unavailable ? 'disabled' : ''}>${state.busy ? '제출 중…' : '제출하기'}</button></div>
     </form>
   </section></main>`;
+}
+
+function openEndedResponses(data, expanded = false) {
+  const question = data.free_text_questions?.[0];
+  if (!question) return '';
+  const entries = (data.responses ?? [])
+    .map((response, index) => ({
+      number: String(index + 1).padStart(3, '0'),
+      text: String(response?.answers?.[question.id] ?? '').trim(),
+    }))
+    .filter((entry) => entry.text);
+  const visible = expanded ? entries : entries.slice(0, 5);
+  const written = Number.isInteger(question.written) ? question.written : entries.length;
+  const unwritten = Number.isInteger(question.unwritten) ? question.unwritten : data.completed - written;
+  return `<section class="panel opinion-panel" id="open-ended"><div class="section-heading"><div><h2>주관식 의견</h2><p>개인정보 없이 작성된 의견을 익명으로 표시합니다.</p></div></div>
+    <div class="opinion-counts"><article><span>작성</span><strong>${written}<small>명</small></strong></article><article><span>미작성</span><strong>${unwritten}<small>명</small></strong></article></div>
+    ${visible.length ? `<div class="opinion-list">${visible.map((entry) => `<article><h3>의견 ${entry.number}</h3><p>${escapeHtml(entry.text)}</p></article>`).join('')}</div>` : '<div class="empty-results compact"><h3>작성된 주관식 의견이 없습니다.</h3></div>'}
+    ${entries.length > 5 ? button(expanded ? '의견 접기' : `의견 더 보기 (${entries.length - 5}건)`, 'toggle-opinions', 'secondary-button') : ''}
+  </section>`;
 }
 function statistics(data) {
   if (!data.completed)
@@ -139,7 +174,7 @@ export function adminView(state) {
           ? `<section class="round-summary" aria-label="현재 평가">
         <div><span>현재 평가</span><h2>${escapeHtml(data.name)}</h2><p>마지막 초기화 이후 제출된 평가를 집계합니다.</p></div>
         <div class="submitted-count"><span>참여 완료</span><strong>${data.completed}<small>명</small></strong></div>
-      </section>${criteriaPanel(data.statistics.length)}${overallAssessment(data)}<section class="panel" id="statistics"><div class="section-heading"><h2>문항별 응답 통계</h2>${button(state.exporting ? '엑셀 생성 중…' : '↓ 통계·개별 응답 엑셀 다운로드', 'export-results', 'secondary-button', !data.completed || state.exporting)}</div>${statistics(data)}</section>`
+      </section>${criteriaPanel(data.statistics.length)}${overallAssessment(data)}<section class="panel" id="statistics"><div class="section-heading"><h2>문항별 응답 통계</h2>${button(state.exporting ? '엑셀 생성 중…' : '↓ 통계·개별 응답 엑셀 다운로드', 'export-results', 'secondary-button', !data.completed || state.exporting)}</div>${statistics(data)}</section>${openEndedResponses(data, state.opinionsExpanded)}`
           : ''
       }
       ${footer(true)}

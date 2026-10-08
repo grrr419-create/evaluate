@@ -171,3 +171,65 @@ test('Excel rejects incomplete responses from before the mandatory-question rese
   };
   assert.throws(() => StatisticsExcel.create(data), /개별 답변 검증/);
 });
+
+test('free-text opinions use paged A4 sheets and every worksheet prints on one portrait page', () => {
+  const statistics = Array.from({ length: 15 }, (_, index) => ({
+    id: `q${index + 1}`,
+    text: `${index + 1}. 선택형 문항 ${index + 1}`,
+    options: ['예', '아니오'],
+    counts: [0, 0],
+    answered: 5,
+  }));
+  const opinions = ['첫 번째 의견', '두 번째 의견', '', '네 번째 의견', '다섯 번째 의견'];
+  const responses = opinions.map((opinion, responseIndex) => ({
+    answers: {
+      ...Object.fromEntries(
+        statistics.map((question, questionIndex) => [
+          question.id,
+          questionIndex < 14 - responseIndex ? 0 : 1,
+        ]),
+      ),
+      opinion,
+    },
+  }));
+  statistics.forEach((question) => {
+    question.counts = [
+      responses.filter((response) => response.answers[question.id] === 0).length,
+      responses.filter((response) => response.answers[question.id] === 1).length,
+    ];
+  });
+  const data = {
+    name: '업무환경 심리평가',
+    completed: 5,
+    response_count: 5,
+    unavailable_response_count: 0,
+    statistics,
+    free_text_questions: [
+      {
+        id: 'opinion',
+        text: '16. 자유 의견',
+        type: 'text',
+        required: false,
+        max_length: 500,
+        written: 4,
+        unwritten: 1,
+      },
+    ],
+    responses,
+  };
+  const files = unzip(StatisticsExcel.create(data));
+  const workbook = files.get('xl/workbook.xml');
+  assert.equal(workbook.match(/<sheet /g).length, 8);
+  assert.match(workbook, /name="주관식 의견 1"/);
+  assert.match(workbook, /name="주관식 의견 2"/);
+  assert.match(files.get('xl/worksheets/sheet1.xml'), /작성 4명/);
+  assert.match(files.get('xl/worksheets/sheet1.xml'), /미작성 1명/);
+  assert.match(files.get('xl/worksheets/sheet2.xml'), /첫 번째 의견/);
+  assert.match(files.get('xl/worksheets/sheet3.xml'), /다섯 번째 의견/);
+  assert.match(files.get('xl/worksheets/sheet4.xml'), /○ 주관식 의견 \(16번 문항\)/);
+  assert.match(files.get('xl/worksheets/sheet4.xml'), /첫 번째 의견/);
+  for (let index = 1; index <= 8; index++) {
+    const xml = files.get(`xl/worksheets/sheet${index}.xml`);
+    assert.match(xml, /paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="1"/);
+  }
+});

@@ -87,10 +87,10 @@ export const StatisticsExcel = (() => {
   const percentText = (count, total) => String(percent(count, total)).replace(/\.0$/, '') + '%';
   const questionText = (value) => String(value ?? '').replace(/^\s*\d+[.)]\s*/, '');
 
-  function worksheet({ rows, dimension, widths, merges, landscape = false }) {
+  function worksheet({ rows, dimension, widths, merges, landscape = false, fitToHeight = 1 }) {
     return (
       declaration +
-      `<worksheet xmlns="${mainNamespace}"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="${dimension}"/><sheetViews><sheetView workbookViewId="0" showGridLines="1"/></sheetViews><cols>` +
+      `<worksheet xmlns="${mainNamespace}"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="${dimension}"/><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><cols>` +
       widths
         .map(
           (width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`,
@@ -100,7 +100,7 @@ export const StatisticsExcel = (() => {
       (merges.length
         ? `<mergeCells count="${merges.length}">${merges.map((range) => `<mergeCell ref="${range}"/>`).join('')}</mergeCells>`
         : '') +
-      `<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup paperSize="9" orientation="${landscape ? 'landscape' : 'portrait'}" fitToWidth="1" fitToHeight="0"/></worksheet>`
+      `<printOptions horizontalCentered="1" verticalCentered="1"/><pageMargins left="0.3" right="0.3" top="0.35" bottom="0.35" header="0.15" footer="0.15"/><pageSetup paperSize="9" orientation="${landscape ? 'landscape' : 'portrait'}" fitToWidth="1" fitToHeight="${fitToHeight}"/></worksheet>`
     );
   }
 
@@ -124,8 +124,13 @@ export const StatisticsExcel = (() => {
     if (data.responses.length !== data.completed)
       throw new Error('현재 회차의 모든 개별 응답을 확인한 후 다시 시도해 주세요.');
 
-    const questionIds = new Set(data.statistics.map((question) => question.id));
-    if (questionIds.size !== data.statistics.length) throw new Error('문항 정보 검증에 실패했습니다.');
+    const freeTextQuestions = Array.isArray(data.free_text_questions) ? data.free_text_questions : [];
+    const questionIds = new Set([
+      ...data.statistics.map((question) => question.id),
+      ...freeTextQuestions.map((question) => question.id),
+    ]);
+    if (questionIds.size !== data.statistics.length + freeTextQuestions.length)
+      throw new Error('문항 정보 검증에 실패했습니다.');
     const responseCounts = data.statistics.map((question) => Array(question.options.length).fill(0));
     for (const entry of data.responses) {
       const answers = entry?.answers;
@@ -142,6 +147,11 @@ export const StatisticsExcel = (() => {
           throw new Error('개별 답변 검증에 실패했습니다.');
         responseCounts[questionIndex][choice]++;
       });
+      for (const question of freeTextQuestions) {
+        const value = answers[question.id];
+        if (value !== undefined && (typeof value !== 'string' || value.length > (question.max_length ?? 500)))
+          throw new Error('주관식 답변 검증에 실패했습니다.');
+      }
     }
     data.statistics.forEach((question, questionIndex) => {
       const answered = Number.isInteger(question.answered)
@@ -159,6 +169,18 @@ export const StatisticsExcel = (() => {
       )
         throw new Error('응답 수 검증에 실패했습니다.');
     });
+    for (const question of freeTextQuestions) {
+      const written = data.responses.filter(
+        (response) => String(response.answers[question.id] ?? '').trim().length > 0,
+      ).length;
+      if (
+        !Number.isInteger(question.written) ||
+        !Number.isInteger(question.unwritten) ||
+        question.written !== written ||
+        question.unwritten !== data.completed - written
+      )
+        throw new Error('주관식 응답 수 검증에 실패했습니다.');
+    }
   }
 
   function summarySheet(data, summary) {
@@ -206,12 +228,47 @@ export const StatisticsExcel = (() => {
         ),
       );
     });
+    const freeText = data.free_text_questions?.[0];
+    const lastQuestionRow = data.statistics.length + 9;
+    const merges = ['A1:C1'];
+    if (freeText) {
+      rows.push(
+        row(
+          lastQuestionRow + 1,
+          [
+            cell(`A${lastQuestionRow + 1}`, '', 0),
+            cell(`B${lastQuestionRow + 1}`, '', 0),
+            cell(`C${lastQuestionRow + 1}`, '', 0),
+          ],
+          10,
+        ),
+        row(
+          lastQuestionRow + 2,
+          [
+            cell(`A${lastQuestionRow + 2}`, '주관식 의견', 20),
+            cell(`B${lastQuestionRow + 2}`, `작성 ${freeText.written}명`, 24),
+            cell(`C${lastQuestionRow + 2}`, `미작성 ${freeText.unwritten}명`, 24),
+          ],
+          30,
+        ),
+        row(
+          lastQuestionRow + 3,
+          [
+            cell(`A${lastQuestionRow + 3}`, '상세 의견은 ‘주관식 의견’ 시트에서 확인할 수 있습니다.', 16),
+            cell(`B${lastQuestionRow + 3}`, '', 17),
+            cell(`C${lastQuestionRow + 3}`, '', 17),
+          ],
+          30,
+        ),
+      );
+      merges.push(`A${lastQuestionRow + 3}:C${lastQuestionRow + 3}`);
+    }
+    const finalRow = lastQuestionRow + (freeText ? 3 : 0);
     return worksheet({
       rows,
-      dimension: `A1:C${data.statistics.length + 9}`,
-      widths: [75, 20.625, 20.625],
-      merges: ['A1:C1'],
-      landscape: true,
+      dimension: `A1:C${finalRow}`,
+      widths: [70, 19, 19],
+      merges,
     });
   }
 
@@ -223,12 +280,15 @@ export const StatisticsExcel = (() => {
       ),
       grade = assessmentGrade(score),
       responseNumber = String(index + 1).padStart(3, '0'),
+      freeText = data.free_text_questions?.[0],
       questionEnd = data.statistics.length + 3,
       spacerRow = questionEnd + 1,
-      stateHeadingRow = spacerRow + 1,
-      stateRow = spacerRow + 2,
-      descriptionHeadingRow = spacerRow + 3,
-      descriptionRow = spacerRow + 4;
+      opinionHeadingRow = freeText ? spacerRow + 1 : null,
+      opinionRow = freeText ? spacerRow + 2 : null,
+      stateHeadingRow = spacerRow + (freeText ? 3 : 1),
+      stateRow = stateHeadingRow + 1,
+      descriptionHeadingRow = stateRow + 1,
+      descriptionRow = descriptionHeadingRow + 1;
     const rows = [
       row(
         1,
@@ -236,10 +296,10 @@ export const StatisticsExcel = (() => {
           cell('A1', `개별 응답 ${responseNumber} / ${grade.label} : ${grade.titleCriterion}`, 2),
           cell('B1', '', 2),
         ],
-        50.1,
+        38,
       ),
       row(2, [cell('A2', '', 0), cell('B2', '', 0)]),
-      row(3, [cell('A3', '문   항', 3), cell('B3', '선택 답변', 31)], 39.95),
+      row(3, [cell('A3', '문   항', 3), cell('B3', '선택 답변', 31)], 28),
     ];
     data.statistics.forEach((question, questionIndex) => {
       const number = questionIndex + 4,
@@ -256,26 +316,44 @@ export const StatisticsExcel = (() => {
               last ? (answer === '아니오' ? 26 : 25) : answer === '아니오' ? 13 : 12,
             ),
           ],
-          39.95,
+          25,
         ),
       );
     });
+    rows.push(row(spacerRow, [cell(`A${spacerRow}`, '', 0), cell(`B${spacerRow}`, '', 0)]));
+    if (freeText) {
+      const opinion = String(response.answers[freeText.id] ?? '').trim();
+      rows.push(
+        row(
+          opinionHeadingRow,
+          [
+            cell(`A${opinionHeadingRow}`, '○ 주관식 의견 (16번 문항)', 14),
+            cell(`B${opinionHeadingRow}`, '', 15),
+          ],
+          27,
+        ),
+        row(
+          opinionRow,
+          [cell(`A${opinionRow}`, opinion || '미작성', 18), cell(`B${opinionRow}`, '', 19)],
+          92,
+        ),
+      );
+    }
     rows.push(
-      row(spacerRow, [cell(`A${spacerRow}`, '', 0), cell(`B${spacerRow}`, '', 0)]),
       row(
         stateHeadingRow,
         [cell(`A${stateHeadingRow}`, '○ 현재 상태', 27), cell(`B${stateHeadingRow}`, '', 28)],
-        39.95,
+        27,
       ),
       row(
         stateRow,
         [cell(`A${stateRow}`, grade.state.replace(/\.$/, ''), 29), cell(`B${stateRow}`, '', 30)],
-        39.95,
+        38,
       ),
       row(
         descriptionHeadingRow,
         [cell(`A${descriptionHeadingRow}`, '○ 평가 내용', 14), cell(`B${descriptionHeadingRow}`, '', 15)],
-        39.95,
+        27,
       ),
       row(
         descriptionRow,
@@ -283,7 +361,7 @@ export const StatisticsExcel = (() => {
           cell(`A${descriptionRow}`, grade.description.replace(/\.$/, ''), 18),
           cell(`B${descriptionRow}`, '', 19),
         ],
-        39.95,
+        46,
       ),
     );
     return {
@@ -294,6 +372,9 @@ export const StatisticsExcel = (() => {
         widths: [70, 42],
         merges: [
           'A1:B1',
+          ...(freeText
+            ? [`A${opinionHeadingRow}:B${opinionHeadingRow}`, `A${opinionRow}:B${opinionRow}`]
+            : []),
           `A${stateHeadingRow}:B${stateHeadingRow}`,
           `A${stateRow}:B${stateRow}`,
           `A${descriptionHeadingRow}:B${descriptionHeadingRow}`,
@@ -301,6 +382,62 @@ export const StatisticsExcel = (() => {
         ],
       }),
     };
+  }
+
+  function openEndedSheets(data) {
+    const question = data.free_text_questions?.[0];
+    if (!question) return [];
+    const entries = data.responses
+      .map((response, index) => ({
+        number: String(index + 1).padStart(3, '0'),
+        text: String(response.answers[question.id] ?? '').trim(),
+      }))
+      .filter((entry) => entry.text);
+    const pages = [];
+    for (let index = 0; index < Math.max(entries.length, 1); index += 3)
+      pages.push(entries.slice(index, index + 3));
+    return pages.map((entriesOnPage, pageIndex) => {
+      const rows = [
+        row(1, [cell('A1', '주관식 의견', 1), cell('B1', '', 1)], 36),
+        row(
+          2,
+          [
+            cell(
+              'A2',
+              '개인정보 없이 작성된 익명 의견입니다. 의견 번호는 개별 응답 시트 번호와 같습니다.',
+              16,
+            ),
+            cell('B2', '', 17),
+          ],
+          30,
+        ),
+        row(3, [cell('A3', '의견 번호', 3), cell('B3', '작성 내용', 31)], 28),
+      ];
+      if (!entriesOnPage.length) {
+        rows.push(row(4, [cell('A4', '-', 10), cell('B4', '작성된 주관식 의견이 없습니다.', 9)], 80));
+      } else {
+        entriesOnPage.forEach((entry, entryIndex) => {
+          const number = entryIndex + 4;
+          rows.push(
+            row(
+              number,
+              [cell(`A${number}`, `의견 ${entry.number}`, 10), cell(`B${number}`, entry.text, 9)],
+              150,
+            ),
+          );
+        });
+      }
+      const finalRow = Math.max(4, rows.length);
+      return {
+        name: pages.length === 1 ? '주관식 의견' : `주관식 의견 ${pageIndex + 1}`,
+        xml: worksheet({
+          rows,
+          dimension: `A1:B${finalRow}`,
+          widths: [18, 88],
+          merges: ['A1:B1', 'A2:B2'],
+        }),
+      };
+    });
   }
 
   const styles =
@@ -350,6 +487,7 @@ export const StatisticsExcel = (() => {
     if (!summary) throw new Error('평가 결과를 판정하지 못했습니다. 새로고침 후 다시 시도해 주세요.');
     const sheets = [
       { name: '결과(요약)', xml: summarySheet(data, summary) },
+      ...openEndedSheets(data),
       ...data.responses.map((response, index) => responseSheet(data, response, index)),
     ];
     const files = [

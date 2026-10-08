@@ -1,6 +1,6 @@
-import { createApi } from './api.js?v=2.5.3';
-import { loginView, evaluationView, adminView, answeredCount } from './views.js?v=2.5.3';
-import { createConfirmation } from './confirmation.js?v=2.5.3';
+import { createApi } from './api.js?v=2.6.0';
+import { loginView, evaluationView, adminView, answeredCount, requiredAnswerCount } from './views.js?v=2.6.0';
+import { createConfirmation } from './confirmation.js?v=2.6.0';
 
 const root = document.getElementById('app');
 const role = document.documentElement.dataset.role || 'evaluate';
@@ -16,6 +16,7 @@ const state = {
   busy: false,
   stale: false,
   exporting: false,
+  opinionsExpanded: false,
 };
 const route = (action) => `/api/${role}/${action}`;
 
@@ -112,7 +113,7 @@ function canSubmit(view = state.view) {
     !state.stale &&
     view?.accepted &&
     !view.complete &&
-    answeredCount(view, state.answers) === view.questions.length
+    answeredCount(view, state.answers) === requiredAnswerCount(view)
   );
 }
 
@@ -180,7 +181,7 @@ async function download() {
   render();
   try {
     const [{ StatisticsExcel }, data] = await Promise.all([
-      import('./statistics-excel.js?v=2.5.3'),
+      import('./statistics-excel.js?v=2.6.0'),
       api.request('/api/admin/export', {}),
     ]);
     const blob = new Blob([StatisticsExcel.create(data)], {
@@ -244,6 +245,10 @@ const actions = {
   },
   'reset-open': confirmReset,
   'export-results': download,
+  'toggle-opinions'() {
+    state.opinionsExpanded = !state.opinionsExpanded;
+    render();
+  },
 };
 
 root.addEventListener('submit', (event) => {
@@ -256,6 +261,12 @@ root.addEventListener('change', (event) => {
   if (event.target.type !== 'radio' || !state.view || state.busy || state.stale) return;
   state.answers[event.target.name] = Number(event.target.value);
   root.querySelector('#submit-assessment').disabled = !canSubmit();
+});
+root.addEventListener('input', (event) => {
+  if (event.target.tagName !== 'TEXTAREA' || !state.view || state.busy || state.stale) return;
+  state.answers[event.target.name] = event.target.value;
+  const counter = event.target.closest('.text-answer')?.querySelector('[data-counter-for]');
+  if (counter) counter.textContent = `${event.target.value.length} / ${event.target.maxLength}자`;
 });
 root.addEventListener('click', async (event) => {
   const button = event.target.closest('[data-action]');

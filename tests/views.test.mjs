@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loginView, evaluationView, adminView, answeredCount } from '../public/views.js';
+import { loginView, evaluationView, adminView, answeredCount, requiredAnswerCount } from '../public/views.js';
 
 test('participation has no identity fields, while admin still has its credential fields', () => {
   const state = { error: '', notice: '', busy: false };
@@ -59,4 +59,49 @@ test('admin places criteria between the current round and the overall assessment
   assert.match(html, /0개~9개/);
   assert.match(html, /11\.2<small>개 \/ 15개/);
   assert.match(html, /2명 <small>\(40%\)/);
+});
+
+test('optional free-text question does not block submission and is shown anonymously to admins', () => {
+  const questions = [
+    { id: 'choice', text: '1. 선택형 문항', options: ['예', '아니오'] },
+    {
+      id: 'opinion',
+      text: '16. 자유롭게 작성해 주세요.\n(예: 업무분장)',
+      type: 'text',
+      required: false,
+      max_length: 500,
+    },
+  ];
+  const state = {
+    view: { accepted: true, complete: false, name: '평가', questions },
+    answers: { choice: 0, opinion: '개선 의견' },
+    error: '',
+    notice: '',
+    busy: false,
+    stale: false,
+  };
+  const survey = evaluationView(state);
+  assert.equal(answeredCount(state.view, state.answers), 1);
+  assert.equal(requiredAnswerCount(state.view), 1);
+  assert.doesNotMatch(survey, /id="submit-assessment" disabled/);
+  assert.match(survey, /<textarea[^>]+maxlength="500"/);
+  assert.match(survey, /개인을 알아볼 수 있는 정보는 입력하지 마세요/);
+  assert.match(survey, /5 \/ 500자/);
+
+  const admin = adminView({
+    data: {
+      name: '평가',
+      completed: 1,
+      statistics: [{ ...questions[0], counts: [1, 0], answered: 1 }],
+      free_text_questions: [{ ...questions[1], written: 1, unwritten: 0 }],
+      responses: [{ answers: { choice: 0, opinion: '<익명 의견>' } }],
+    },
+    error: '',
+    notice: '',
+    exporting: false,
+    opinionsExpanded: false,
+  });
+  assert.match(admin, /주관식 의견/);
+  assert.match(admin, /의견 001/);
+  assert.match(admin, /&lt;익명 의견&gt;/);
 });

@@ -101,11 +101,17 @@ CREATE OR REPLACE FUNCTION evaluate_private.dashboard()
  LANGUAGE plpgsql
  SET search_path TO ''
 AS $function$
-declare cfg evaluate_private.settings; completed integer; answered integer; stats jsonb='[]'; nums jsonb; q jsonb; ix integer; amount integer;
+declare cfg evaluate_private.settings; completed integer; answered integer; written integer; stats jsonb='[]'; free_stats jsonb='[]'; nums jsonb; q jsonb; ix integer; amount integer;
 begin
   select * into strict cfg from evaluate_private.settings where singleton;
   select count(*)+cfg.legacy_count into completed from evaluate_private.round_responses;
   for q in select jsonb_array_elements(cfg.source->'questions') loop
+    if q->>'type'='text' then
+      select count(*) into written from evaluate_private.round_responses
+        where char_length(btrim(coalesce(answers->>(q->>'id'),'')))>0;
+      free_stats=free_stats||jsonb_build_array(q||jsonb_build_object('written',written,'unwritten',completed-written));
+      continue;
+    end if;
     nums='[]';
     for ix in 0..jsonb_array_length(q->'options')-1 loop
       select count(*)+coalesce((select n from evaluate_private.legacy_counts where question=q->>'id' and choice=ix),0)
@@ -117,7 +123,8 @@ begin
     stats=stats||jsonb_build_array(q||jsonb_build_object('counts',nums,'answered',answered));
   end loop;
   return jsonb_build_object('name',cfg.assessment_name,'completed',completed,'statistics',stats,
-    'question_count',jsonb_array_length(cfg.source->'questions'),'epoch',cfg.epoch);
+    'free_text_questions',free_stats,'question_count',jsonb_array_length(cfg.source->'questions'),
+    'scored_question_count',jsonb_array_length(stats),'epoch',cfg.epoch);
 end $function$;
 
 CREATE OR REPLACE FUNCTION public.evaluate_api(p_route text, p_body jsonb DEFAULT '{}'::jsonb, p_session text DEFAULT ''::text, p_client text DEFAULT ''::text)
@@ -127,7 +134,7 @@ CREATE OR REPLACE FUNCTION public.evaluate_api(p_route text, p_body jsonb DEFAUL
  SET search_path TO ''
 AS $function$
 declare cfg evaluate_private.settings; sess evaluate_private.sessions; who evaluate_private.admissions;
-  result jsonb; q jsonb; answers jsonb; raw_answer jsonb; ix integer; raw_token text; v_token_hash text;
+  result jsonb; q jsonb; answers jsonb; raw_answer jsonb; ix integer; max_length integer; text_answer text; raw_token text; v_token_hash text;
   role_name text; identifier text; supplied text; device text; device_hash text;
   buckets text[]; bucket_key text; amount integer; cap integer; nonce text; saved integer; responses jsonb;
 begin
@@ -198,9 +205,25 @@ begin
       if who.complete then return evaluate_private.failure(409,'평가는 1회 참여할 수 있습니다.'); end if;
       answers=p_body->'answers';
       if jsonb_typeof(answers) is distinct from 'object' then return evaluate_private.failure(400,'모든 문항에 답변해 주세요.'); end if;
-      if (select count(*) from jsonb_object_keys(answers))<>jsonb_array_length(cfg.source->'questions') then return evaluate_private.failure(400,'모든 문항에 답변해 주세요.'); end if;
+      if exists(
+        select 1 from jsonb_object_keys(answers) as supplied(key)
+        where not exists(select 1 from jsonb_array_elements(cfg.source->'questions') as configured(item) where configured.item->>'id'=supplied.key)
+      ) then return evaluate_private.failure(400,'선택할 수 없는 답변이 포함되어 있습니다.'); end if;
       for q in select jsonb_array_elements(cfg.source->'questions') loop
         raw_answer=answers->(q->>'id');
+        if q->>'type'='text' then
+          max_length=coalesce((q->>'max_length')::integer,500);
+          if raw_answer is null then
+            answers=jsonb_set(answers,array[q->>'id'],to_jsonb(''::text),true);
+          elsif jsonb_typeof(raw_answer) is distinct from 'string' then
+            return evaluate_private.failure(400,'주관식 답변 형식을 확인해 주세요.');
+          else
+            text_answer=btrim(raw_answer#>>'{}');
+            if char_length(text_answer)>max_length then return evaluate_private.failure(400,'주관식 답변은 500자 이내로 작성해 주세요.'); end if;
+            answers=jsonb_set(answers,array[q->>'id'],to_jsonb(text_answer),true);
+          end if;
+          continue;
+        end if;
         if jsonb_typeof(raw_answer) is distinct from 'number' or coalesce(raw_answer::text,'')!~'^[0-9]{1,4}$' then return evaluate_private.failure(400,'선택할 수 없는 답변이 포함되어 있습니다.'); end if;
         ix=(raw_answer::text)::integer;
         if ix>=jsonb_array_length(q->'options') then return evaluate_private.failure(400,'선택할 수 없는 답변이 포함되어 있습니다.'); end if;
