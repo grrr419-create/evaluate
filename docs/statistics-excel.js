@@ -1,4 +1,4 @@
-import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.6.3';
+import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.6.4';
 
 /* Minimal XLSX writer: fixed XML schema, inline strings, numeric counts, no formulas/macros. */
 ('use strict');
@@ -259,10 +259,10 @@ export const StatisticsExcel = (() => {
               freeText.written > 0
                 ? '작성된 주관식 의견은 ‘주관식 의견’ 시트에서 확인할 수 있습니다.'
                 : '작성된 주관식 의견이 없습니다.',
-              16,
+              18,
             ),
-            cell(`B${lastQuestionRow + 3}`, '', 17),
-            cell(`C${lastQuestionRow + 3}`, '', 17),
+            cell(`B${lastQuestionRow + 3}`, '', 19),
+            cell(`C${lastQuestionRow + 3}`, '', 19),
           ],
           30,
         ),
@@ -417,14 +417,18 @@ export const StatisticsExcel = (() => {
         row(3, [cell('A3', '의견 번호', 3), cell('B3', '작성 내용', 31)], 28),
       ];
       if (!entriesOnPage.length) {
-        rows.push(row(4, [cell('A4', '-', 10), cell('B4', '작성된 주관식 의견이 없습니다.', 9)], 80));
+        rows.push(row(4, [cell('A4', '-', 24), cell('B4', '작성된 주관식 의견이 없습니다.', 23)], 80));
       } else {
         entriesOnPage.forEach((entry, entryIndex) => {
           const number = entryIndex + 4;
+          const last = entryIndex === entriesOnPage.length - 1;
           rows.push(
             row(
               number,
-              [cell(`A${number}`, `의견 ${entry.number}`, 10), cell(`B${number}`, entry.text, 9)],
+              [
+                cell(`A${number}`, `의견 ${entry.number}`, last ? 24 : 10),
+                cell(`B${number}`, entry.text, last ? 23 : 9),
+              ],
               150,
             ),
           );

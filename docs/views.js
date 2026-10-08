@@ -1,4 +1,4 @@
-import { ASSESSMENT_CRITERIA, assessmentSummary } from './assessment-rules.js?v=2.6.3';
+import { ASSESSMENT_CRITERIA, assessmentSummary } from './assessment-rules.js?v=2.6.4';
 
 const TITLE = '업무환경 심리평가';
 const LOGO = `<span class="logo-mark" aria-hidden="true">H</span><div class="logo-text">HANSHIN<small>${TITLE}</small></div>`;
