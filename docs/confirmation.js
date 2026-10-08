@@ -1,4 +1,4 @@
-import { escapeHtml } from './views.js?v=2.5.2';
+import { escapeHtml } from './views.js?v=2.5.3';
 export function createConfirmation(dialog) {
   let pending = false;
   dialog.addEventListener('cancel', (event) => {
