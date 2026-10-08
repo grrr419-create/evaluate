@@ -1,4 +1,4 @@
-import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.6.1';
+import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.6.2';
 
 /* Minimal XLSX writer: fixed XML schema, inline strings, numeric counts, no formulas/macros. */
 ('use strict');
@@ -245,9 +245,9 @@ export const StatisticsExcel = (() => {
         row(
           lastQuestionRow + 2,
           [
-            cell(`A${lastQuestionRow + 2}`, '주관식 의견', 20),
-            cell(`B${lastQuestionRow + 2}`, `작성 ${freeText.written}명`, 24),
-            cell(`C${lastQuestionRow + 2}`, `미작성 ${freeText.unwritten}명`, 24),
+            cell(`A${lastQuestionRow + 2}`, '주관식 의견', 3),
+            cell(`B${lastQuestionRow + 2}`, `작성 ${freeText.written}명`, 4),
+            cell(`C${lastQuestionRow + 2}`, `미작성 ${freeText.unwritten}명`, 5),
           ],
           30,
         ),
@@ -326,10 +326,7 @@ export const StatisticsExcel = (() => {
       rows.push(
         row(
           opinionHeadingRow,
-          [
-            cell(`A${opinionHeadingRow}`, '○ 주관식 의견 (16번 문항)', 14),
-            cell(`B${opinionHeadingRow}`, '', 15),
-          ],
+          [cell(`A${opinionHeadingRow}`, '○ 주관식 의견', 14), cell(`B${opinionHeadingRow}`, '', 15)],
           27,
         ),
         row(

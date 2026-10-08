@@ -223,10 +223,15 @@ test('free-text opinions use paged A4 sheets and every worksheet prints on one p
   assert.match(workbook, /name="주관식 의견 1"/);
   assert.match(workbook, /name="주관식 의견 2"/);
   assert.match(files.get('xl/worksheets/sheet1.xml'), /작성 4명/);
-  assert.match(files.get('xl/worksheets/sheet1.xml'), /미작성 1명/);
+  const summaryXml = files.get('xl/worksheets/sheet1.xml');
+  assert.match(summaryXml, /미작성 1명/);
+  assert.match(summaryXml, /<c r="A26" s="3"/);
+  assert.match(summaryXml, /<c r="B26" s="4"/);
+  assert.match(summaryXml, /<c r="C26" s="5"/);
   assert.match(files.get('xl/worksheets/sheet2.xml'), /첫 번째 의견/);
   assert.match(files.get('xl/worksheets/sheet3.xml'), /다섯 번째 의견/);
-  assert.match(files.get('xl/worksheets/sheet4.xml'), /○ 주관식 의견 \(16번 문항\)/);
+  assert.match(files.get('xl/worksheets/sheet4.xml'), /○ 주관식 의견/);
+  assert.doesNotMatch(files.get('xl/worksheets/sheet4.xml'), /16번 문항/);
   assert.match(files.get('xl/worksheets/sheet4.xml'), /첫 번째 의견/);
   for (let index = 1; index <= 8; index++) {
     const xml = files.get(`xl/worksheets/sheet${index}.xml`);
