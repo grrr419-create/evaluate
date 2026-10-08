@@ -1,4 +1,4 @@
-import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.6.4';
+import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.6.5';
 
 /* Minimal XLSX writer: fixed XML schema, inline strings, numeric counts, no formulas/macros. */
 ('use strict');

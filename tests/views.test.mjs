@@ -66,7 +66,7 @@ test('optional free-text question does not block submission and is shown anonymo
     { id: 'choice', text: '1. 선택형 문항', options: ['예', '아니오'] },
     {
       id: 'opinion',
-      text: '16. 자유롭게 작성해 주세요.\n(예: 업무분장)',
+      text: '16. 우리 현장의 업무 방식·근무 환경·관행 가운데 개선이 필요하다고 느끼는 사항이나 전하고 싶은 의견이 있다면 자유롭게 작성해 주세요.',
       type: 'text',
       required: false,
       max_length: 500,
@@ -86,6 +86,11 @@ test('optional free-text question does not block submission and is shown anonymo
   assert.doesNotMatch(survey, /id="submit-assessment" disabled/);
   assert.match(survey, /<textarea[^>]+maxlength="500"/);
   assert.doesNotMatch(survey, /개인을 알아볼 수 있는 정보는 입력하지 마세요/);
+  assert.match(
+    survey,
+    /placeholder="예: 업무분장, 휴무·연차 조율, 업무 전달 방식 등 사소한 내용도 좋습니다\."/,
+  );
+  assert.doesNotMatch(survey, /의견을 자유롭게 작성해 주세요\. \(선택\)/);
   assert.match(survey, /5 \/ 500자/);
 
   const admin = adminView({
