@@ -228,6 +228,7 @@ test('free-text opinions use paged A4 sheets and every worksheet prints on one p
   assert.match(summaryXml, /<c r="A26" s="3"/);
   assert.match(summaryXml, /<c r="B26" s="4"/);
   assert.match(summaryXml, /<c r="C26" s="5"/);
+  assert.match(summaryXml, /작성된 주관식 의견은 ‘주관식 의견’ 시트에서 확인할 수 있습니다\./);
   assert.match(files.get('xl/worksheets/sheet2.xml'), /첫 번째 의견/);
   assert.match(files.get('xl/worksheets/sheet3.xml'), /다섯 번째 의견/);
   assert.match(files.get('xl/worksheets/sheet4.xml'), /○ 주관식 의견/);
@@ -237,4 +238,15 @@ test('free-text opinions use paged A4 sheets and every worksheet prints on one p
     const xml = files.get(`xl/worksheets/sheet${index}.xml`);
     assert.match(xml, /paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="1"/);
   }
+
+  const emptyOpinionData = {
+    ...data,
+    free_text_questions: [{ ...data.free_text_questions[0], written: 0, unwritten: 5 }],
+    responses: data.responses.map((response) => ({
+      answers: { ...response.answers, opinion: '' },
+    })),
+  };
+  const emptyOpinionSummary = unzip(StatisticsExcel.create(emptyOpinionData)).get('xl/worksheets/sheet1.xml');
+  assert.match(emptyOpinionSummary, /작성된 주관식 의견이 없습니다\./);
+  assert.doesNotMatch(emptyOpinionSummary, /‘주관식 의견’ 시트에서 확인/);
 });

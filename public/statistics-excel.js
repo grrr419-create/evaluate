@@ -254,7 +254,13 @@ export const StatisticsExcel = (() => {
         row(
           lastQuestionRow + 3,
           [
-            cell(`A${lastQuestionRow + 3}`, '상세 의견은 ‘주관식 의견’ 시트에서 확인할 수 있습니다.', 16),
+            cell(
+              `A${lastQuestionRow + 3}`,
+              freeText.written > 0
+                ? '작성된 주관식 의견은 ‘주관식 의견’ 시트에서 확인할 수 있습니다.'
+                : '작성된 주관식 의견이 없습니다.',
+              16,
+            ),
             cell(`B${lastQuestionRow + 3}`, '', 17),
             cell(`C${lastQuestionRow + 3}`, '', 17),
           ],
