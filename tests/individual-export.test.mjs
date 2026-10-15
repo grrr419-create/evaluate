@@ -234,7 +234,8 @@ test('free-text opinions use paged A4 sheets and every worksheet prints on one p
   assert.match(summaryXml, /작성된 주관식 의견은 ‘주관식 의견’ 시트에서 확인할 수 있습니다\./);
   assert.match(files.get('xl/worksheets/sheet2.xml'), /첫 번째 의견/);
   assert.match(files.get('xl/worksheets/sheet3.xml'), /다섯 번째 의견/);
-  assert.match(files.get('xl/worksheets/sheet4.xml'), /○ 주관식 의견/);
+  assert.match(files.get('xl/worksheets/sheet4.xml'), /○ 기타의견/);
+  assert.doesNotMatch(files.get('xl/worksheets/sheet4.xml'), /○ 주관식 의견/);
   assert.doesNotMatch(files.get('xl/worksheets/sheet4.xml'), /16번 문항/);
   assert.match(files.get('xl/worksheets/sheet4.xml'), /첫 번째 의견/);
   assert.match(files.get('xl/worksheets/sheet4.xml'), /<c r="A20" s="32"/);

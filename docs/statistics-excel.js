@@ -1,4 +1,4 @@
-import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.6.7';
+import { ASSESSMENT_CRITERIA, assessmentGrade, assessmentSummary } from './assessment-rules.js?v=2.6.8';
 
 /* Minimal XLSX writer: fixed XML schema, inline strings, numeric counts, no formulas/macros. */
 ('use strict');
@@ -332,7 +332,7 @@ export const StatisticsExcel = (() => {
       rows.push(
         row(
           opinionHeadingRow,
-          [cell(`A${opinionHeadingRow}`, '○ 주관식 의견', 32), cell(`B${opinionHeadingRow}`, '', 33)],
+          [cell(`A${opinionHeadingRow}`, '○ 기타의견', 32), cell(`B${opinionHeadingRow}`, '', 33)],
           27,
         ),
         row(

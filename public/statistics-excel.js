@@ -332,7 +332,7 @@ export const StatisticsExcel = (() => {
       rows.push(
         row(
           opinionHeadingRow,
-          [cell(`A${opinionHeadingRow}`, '○ 주관식 의견', 32), cell(`B${opinionHeadingRow}`, '', 33)],
+          [cell(`A${opinionHeadingRow}`, '○ 기타의견', 32), cell(`B${opinionHeadingRow}`, '', 33)],
           27,
         ),
         row(
