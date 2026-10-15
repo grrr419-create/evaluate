@@ -245,7 +245,7 @@ export const StatisticsExcel = (() => {
         row(
           lastQuestionRow + 2,
           [
-            cell(`A${lastQuestionRow + 2}`, '주관식 의견', 3),
+            cell(`A${lastQuestionRow + 2}`, '기타의견', 3),
             cell(`B${lastQuestionRow + 2}`, `작성 ${freeText.written}명`, 4),
             cell(`C${lastQuestionRow + 2}`, `미작성 ${freeText.unwritten}명`, 5),
           ],
@@ -257,8 +257,8 @@ export const StatisticsExcel = (() => {
             cell(
               `A${lastQuestionRow + 3}`,
               freeText.written > 0
-                ? '작성된 주관식 의견은 ‘주관식 의견’ 시트에서 확인할 수 있습니다.'
-                : '작성된 주관식 의견이 없습니다.',
+                ? '작성된 기타의견은 ‘기타의견’ 시트에서 확인할 수 있습니다.'
+                : '작성된 기타의견이 없습니다.',
               18,
             ),
             cell(`B${lastQuestionRow + 3}`, '', 19),
@@ -401,7 +401,7 @@ export const StatisticsExcel = (() => {
       pages.push(entries.slice(index, index + 3));
     return pages.map((entriesOnPage, pageIndex) => {
       const rows = [
-        row(1, [cell('A1', '주관식 의견', 1), cell('B1', '', 1)], 36),
+        row(1, [cell('A1', '기타의견', 1), cell('B1', '', 1)], 36),
         row(
           2,
           [
@@ -417,7 +417,7 @@ export const StatisticsExcel = (() => {
         row(3, [cell('A3', '의견 번호', 3), cell('B3', '작성 내용', 31)], 28),
       ];
       if (!entriesOnPage.length) {
-        rows.push(row(4, [cell('A4', '-', 24), cell('B4', '작성된 주관식 의견이 없습니다.', 23)], 80));
+        rows.push(row(4, [cell('A4', '-', 24), cell('B4', '작성된 기타의견이 없습니다.', 23)], 80));
       } else {
         entriesOnPage.forEach((entry, entryIndex) => {
           const number = entryIndex + 4;
@@ -436,7 +436,7 @@ export const StatisticsExcel = (() => {
       }
       const finalRow = Math.max(4, rows.length);
       return {
-        name: pages.length === 1 ? '주관식 의견' : `주관식 의견 ${pageIndex + 1}`,
+        name: pages.length === 1 ? '기타의견' : `기타의견 ${pageIndex + 1}`,
         xml: worksheet({
           rows,
           dimension: `A1:B${finalRow}`,

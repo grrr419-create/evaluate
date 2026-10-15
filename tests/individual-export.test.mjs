@@ -220,8 +220,8 @@ test('free-text opinions use paged A4 sheets and every worksheet prints on one p
   const files = unzip(StatisticsExcel.create(data));
   const workbook = files.get('xl/workbook.xml');
   assert.equal(workbook.match(/<sheet /g).length, 8);
-  assert.match(workbook, /name="주관식 의견 1"/);
-  assert.match(workbook, /name="주관식 의견 2"/);
+  assert.match(workbook, /name="기타의견 1"/);
+  assert.match(workbook, /name="기타의견 2"/);
   assert.match(files.get('xl/worksheets/sheet1.xml'), /작성 4명/);
   const summaryXml = files.get('xl/worksheets/sheet1.xml');
   assert.match(summaryXml, /미작성 1명/);
@@ -231,7 +231,7 @@ test('free-text opinions use paged A4 sheets and every worksheet prints on one p
   assert.match(summaryXml, /<c r="A27" s="18"/);
   assert.match(summaryXml, /<c r="B27" s="19"/);
   assert.match(summaryXml, /<c r="C27" s="19"/);
-  assert.match(summaryXml, /작성된 주관식 의견은 ‘주관식 의견’ 시트에서 확인할 수 있습니다\./);
+  assert.match(summaryXml, /작성된 기타의견은 ‘기타의견’ 시트에서 확인할 수 있습니다\./);
   assert.match(files.get('xl/worksheets/sheet2.xml'), /첫 번째 의견/);
   assert.match(files.get('xl/worksheets/sheet3.xml'), /다섯 번째 의견/);
   assert.match(files.get('xl/worksheets/sheet4.xml'), /○ 기타의견/);
@@ -261,8 +261,8 @@ test('free-text opinions use paged A4 sheets and every worksheet prints on one p
     })),
   };
   const emptyOpinionSummary = unzip(StatisticsExcel.create(emptyOpinionData)).get('xl/worksheets/sheet1.xml');
-  assert.match(emptyOpinionSummary, /작성된 주관식 의견이 없습니다\./);
-  assert.doesNotMatch(emptyOpinionSummary, /‘주관식 의견’ 시트에서 확인/);
+  assert.match(emptyOpinionSummary, /작성된 기타의견이 없습니다\./);
+  assert.doesNotMatch(emptyOpinionSummary, /‘기타의견’ 시트에서 확인/);
 
   const twoOpinionData = {
     ...data,
@@ -274,4 +274,5 @@ test('free-text opinions use paged A4 sheets and every worksheet prints on one p
   const twoOpinionSheet = unzip(StatisticsExcel.create(twoOpinionData)).get('xl/worksheets/sheet2.xml');
   assert.match(twoOpinionSheet, /<c r="A5" s="24"/);
   assert.match(twoOpinionSheet, /<c r="B5" s="23"/);
+  assert.doesNotMatch([...files.values()].join(''), /주관식 의견/);
 });
